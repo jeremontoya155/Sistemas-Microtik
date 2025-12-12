@@ -18,6 +18,15 @@ module.exports = (app, controller) => {
     });
     
     /**
+     * GET /admin - Página de administración
+     */
+    app.get('/admin', (req, res) => {
+        res.render('admin', {
+            title: 'Panel de Administración MikroTik'
+        });
+    });
+    
+    /**
      * GET /404 - Página de error 404
      */
     app.get('/404', (req, res) => {
@@ -241,6 +250,204 @@ module.exports = (app, controller) => {
                 message: 'Interfaz no encontrada'
             });
             
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== API: ADMINISTRACIÓN ====================
+    
+    /**
+     * GET /api/admin/firewall/rules - Obtener reglas de firewall
+     */
+    app.get('/api/admin/firewall/rules', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const rules = await controller.connection.write('/ip/firewall/filter/print');
+            
+            res.json({
+                success: true,
+                rules: rules
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/firewall/add - Agregar regla de firewall
+     */
+    app.post('/api/admin/firewall/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = [];
+            Object.entries(req.body).forEach(([key, value]) => {
+                if (value) params.push(`=${key}=${value}`);
+            });
+            
+            await controller.connection.write('/ip/firewall/filter/add', params);
+            
+            res.json({
+                success: true,
+                message: 'Regla agregada correctamente'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/firewall/toggle - Habilitar/Deshabilitar regla de firewall
+     */
+    app.post('/api/admin/firewall/toggle', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id, disable } = req.body;
+            
+            await controller.connection.write('/ip/firewall/filter/set', [
+                `=.id=${id}`,
+                `=disabled=${disable ? 'yes' : 'no'}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: disable ? 'Regla deshabilitada' : 'Regla habilitada'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/firewall/delete - Eliminar regla de firewall
+     */
+    app.post('/api/admin/firewall/delete', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id } = req.body;
+            
+            await controller.connection.write('/ip/firewall/filter/remove', [
+                `=.id=${id}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: 'Regla eliminada'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * GET /api/admin/nat/rules - Obtener reglas NAT
+     */
+    app.get('/api/admin/nat/rules', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const rules = await controller.connection.write('/ip/firewall/nat/print');
+            
+            res.json({
+                success: true,
+                rules: rules
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * GET /api/admin/queue/simple - Obtener colas simples
+     */
+    app.get('/api/admin/queue/simple', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const queues = await controller.connection.write('/queue/simple/print');
+            
+            res.json({
+                success: true,
+                queues: queues
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * GET /api/interfaces - Obtener interfaces
+     */
+    app.get('/api/interfaces', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const interfaces = await controller.connection.write('/interface/print');
+            
+            res.json({
+                success: true,
+                interfaces: interfaces
+            });
         } catch (error) {
             res.status(500).json({
                 success: false,

@@ -268,19 +268,30 @@ function updateDevices(data) {
     elements.devicesCount.textContent = devices.length;
     elements.devicesActive.textContent = activeDevices;
     
-    elements.devicesControlList.innerHTML = devices.map(device => `
-        <div class="device-control-item">
-            <div class="device-info">
-                <div class="device-name" title="${device.mac}">${device.mac}</div>
-                <div class="device-ip">${device.address || 'N/A'}</div>
+    elements.devicesControlList.innerHTML = devices.map(device => {
+        // Mostrar hostname si existe y es diferente de "Desconocido"
+        const hasHostname = device.hostname && device.hostname !== 'Desconocido';
+        
+        return `
+            <div class="device-control-item">
+                <div class="device-info">
+                    ${hasHostname ? `
+                        <div class="device-name">${device.hostname}</div>
+                        <div class="device-mac">MAC: ${device.mac}</div>
+                    ` : `
+                        <div class="device-name">${device.mac}</div>
+                    `}
+                    <div class="device-ip">IP: ${device.address || 'N/A'}</div>
+                    ${device.comment ? `<div class="device-comment">${device.comment}</div>` : ''}
+                </div>
+                <div class="device-actions">
+                    <button class="btn-device btn-disconnect" onclick="disconnectDevice('${device.mac}')">
+                        Desconectar
+                    </button>
+                </div>
             </div>
-            <div class="device-actions">
-                <button class="btn-device btn-disconnect" onclick="disconnectDevice('${device.mac}')">
-                    Desconectar
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // ==================== ACTUALIZACIÓN DE TRÁFICO ==================== //

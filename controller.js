@@ -222,31 +222,58 @@ class MikroTikController {
             
             try {
                 leases = await this.connection.write('/ip/dhcp-server/lease/print');
+                console.log(`📋 ${leases.length} DHCP leases encontrados`);
             } catch (err) {
                 console.log('⚠️ No se pudieron obtener DHCP leases, intentando ARP...');
-                leases = await this.connection.write('/ip/arp/print');
+                try {
+                    leases = await this.connection.write('/ip/arp/print');
+                    console.log(`📋 ${leases.length} entradas ARP encontradas`);
+                } catch (arpErr) {
+                    console.error('❌ Error obteniendo ARP:', arpErr.message);
+                    leases = [];
+                }
             }
             
             this.dhcpLeases = leases
                 .filter(lease => {
                     const status = lease.status || '';
                     const complete = lease.complete || '';
-                    return status.includes('bound') || complete === 'true';
+                    const dynamic = lease.dynamic || '';
+                    // Incluir dispositivos bound o dinámicos activos
+                    return status.includes('bound') || complete === 'true' || dynamic === 'true';
                 })
-                .map(lease => ({
-                    address: lease.address || lease['active-address'] || 'N/A',
-                    mac: lease['mac-address'] || lease['active-mac-address'] || 'N/A',
-                    hostname: lease['host-name'] || lease.comment || 'Desconocido',
-                    status: lease.status || 'active',
-                    expires: lease['expires-after'] || 'N/A',
-                    active: true
-                }));
+                .map(lease => {
+                    // Obtener el nombre del dispositivo de múltiples fuentes
+                    let hostname = 'Desconocido';
+                    
+                    // Prioridad: host-name > comment > server
+                    if (lease['host-name'] && lease['host-name'] !== '') {
+                        hostname = lease['host-name'];
+                    } else if (lease.comment && lease.comment !== '') {
+                        hostname = lease.comment;
+                    } else if (lease.server && lease.server !== '') {
+                        hostname = lease.server;
+                    } else if (lease['active-address']) {
+                        // Si es ARP, usar la IP como identificador
+                        hostname = `Dispositivo ${lease['active-address']}`;
+                    }
+                    
+                    return {
+                        address: lease.address || lease['active-address'] || 'N/A',
+                        mac: lease['mac-address'] || lease['active-mac-address'] || 'N/A',
+                        hostname: hostname,
+                        status: lease.status || 'active',
+                        expires: lease['expires-after'] || 'Permanente',
+                        active: true,
+                        comment: lease.comment || ''
+                    };
+                });
             
             this.io.emit('devices_update', { devices: this.dhcpLeases });
             console.log(`✅ ${this.dhcpLeases.length} dispositivos cargados`);
             
         } catch (error) {
-            console.error('Error cargando dispositivos:', error.message);
+            console.error('❌ Error cargando dispositivos:', error.message);
             this.dhcpLeases = [];
         }
     }
@@ -319,45 +346,75 @@ class MikroTikController {
         try {
             const interfaces = await this.connection.write('/interface/print');
             
-            // Detectar WANs (como Python: wan, ether1, pppoe, lte, sfp)
-            const wanKeywords = ['wan', 'ether1', 'pppoe', 'lte', 'sfp'];
+            console.log(`📡 Total interfaces encontradas: ${interfaces.length}`);
+            
+            // Detectar WANs - usando múltiples criterios
+            const wanKeywords = ['wan', 'ether1', 'ether-1', 'pppoe', 'lte', 'sfp', 'ether2'];
+            
+            const wanData = [];
             
             interfaces.forEach(iface => {
                 const name = iface.name.toLowerCase();
-                const isWan = wanKeywords.some(keyword => name.includes(keyword));
+                const comment = (iface.comment || '').toLowerCase();
                 
-                if (isWan) {
+                // Verificar si es WAN por nombre o comentario
+                const isWanByName = wanKeywords.some(keyword => name.includes(keyword));
+                const isWanByComment = comment.includes('wan') || comment.includes('internet');
+                
+                if (isWanByName || isWanByComment) {
                     const running = iface.running === 'true';
-                    const disabled = iface.disabled !== 'true';
-                    const status = running && disabled;
+                    const disabled = iface.disabled === 'true';
                     
-                    this.wanInterfaces[iface.name] = {
-                        status: status,
-                        uptimePercentage: 100,
-                        downtime: 0,
-                        totalFailures: 0,
-                        lastCheck: new Date()
-                    };
+                    // Una WAN está UP si está running Y NO está disabled
+                    const isUp = running && !disabled;
+                    
+                    console.log(`🔍 WAN detectada: ${iface.name} - Running: ${running}, Disabled: ${disabled}, UP: ${isUp}`);
+                    
+                    // Guardar en el registro histórico
+                    if (!this.wanInterfaces[iface.name]) {
+                        this.wanInterfaces[iface.name] = {
+                            status: isUp,
+                            uptimePercentage: 100,
+                            downtime: 0,
+                            totalFailures: 0,
+                            lastCheck: new Date()
+                        };
+                    }
+                    
+                    // Actualizar estado
+                    this.wanInterfaces[iface.name].status = isUp;
+                    this.wanInterfaces[iface.name].lastCheck = new Date();
+                    
+                    // Agregar a la lista de WANs
+                    wanData.push({
+                        name: iface.name,
+                        running: isUp,
+                        status: isUp ? 'UP' : 'DOWN',
+                        disabled: disabled,
+                        comment: iface.comment || '',
+                        type: iface.type || 'ether'
+                    });
                 }
             });
             
-            const wanData = Object.entries(this.wanInterfaces).map(([name, data]) => ({
-                name: name,
-                status: data.status ? 'UP' : 'DOWN',
-                uptimePercentage: data.uptimePercentage,
-                downtimeMinutes: 0,
-                totalFailures: 0
-            }));
+            // Si no se detectaron WANs, mostrar todas las interfaces para debug
+            if (wanData.length === 0) {
+                console.log('⚠️ No se detectaron WANs. Interfaces disponibles:');
+                interfaces.forEach(iface => {
+                    console.log(`  - ${iface.name} (${iface.type}) - Running: ${iface.running}, Comment: ${iface.comment || 'N/A'}`);
+                });
+            }
             
-            this.io.emit('wan_update', {
+            this.io.emit('wans_update', {
                 wans: wanData,
                 changes: []
             });
             
-            console.log(`✅ ${Object.keys(this.wanInterfaces).length} WANs detectadas`);
+            console.log(`✅ ${wanData.length} WANs emitidas al frontend`);
             
         } catch (error) {
-            console.error('Error cargando WANs:', error.message);
+            console.error('❌ Error cargando WANs:', error.message);
+            console.error(error.stack);
         }
     }
     

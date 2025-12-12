@@ -1,0 +1,67 @@
+# Configuración Nginx para MikroTik Dashboard
+# Guardar en: /etc/nginx/sites-available/mikrotik-dashboard
+# Luego: sudo ln -s /etc/nginx/sites-available/mikrotik-dashboard /etc/nginx/sites-enabled/
+
+server {
+    listen 80;
+    server_name tu-dominio.com www.tu-dominio.com;  # Cambiar por tu dominio
+    
+    # Redirigir a HTTPS (después de configurar certbot)
+    # return 301 https://$server_name$request_uri;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        
+        # Headers para WebSocket
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Headers adicionales
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts para WebSocket
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+    }
+    
+    # Archivos estáticos con caché
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf)$ {
+        proxy_pass http://localhost:3000;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # Logs
+    access_log /var/log/nginx/mikrotik-dashboard-access.log;
+    error_log /var/log/nginx/mikrotik-dashboard-error.log;
+}
+
+# Configuración HTTPS (descomentar después de ejecutar certbot)
+# server {
+#     listen 443 ssl http2;
+#     server_name tu-dominio.com www.tu-dominio.com;
+#     
+#     ssl_certificate /etc/letsencrypt/live/tu-dominio.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/tu-dominio.com/privkey.pem;
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     
+#     location / {
+#         proxy_pass http://localhost:3000;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection 'upgrade';
+#         proxy_set_header Host $host;
+#         proxy_cache_bypass $http_upgrade;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_read_timeout 86400;
+#         proxy_send_timeout 86400;
+#     }
+# }

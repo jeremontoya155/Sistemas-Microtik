@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - <%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>⚙️ Panel de Administración - <%= title %></h1>
+            <p id="clock">Cargando...</p>
+        </div>
+        <div class="header-right">
+            <a href="/" class="btn btn-secondary">
+                🏠 Dashboard
+            </a>
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="connection-status">Desconectado</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Container Principal -->
+    <div class="admin-container">
+        
+        <!-- Navegación de pestañas -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="firewall">🔥 Firewall</button>
+            <button class="tab-btn" data-tab="nat">🔄 NAT</button>
+            <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
+            <button class="tab-btn" data-tab="dhcp">🌐 DHCP</button>
+            <button class="tab-btn" data-tab="routes">🗺️ Rutas</button>
+            <button class="tab-btn" data-tab="users">👥 Usuarios</button>
+            <button class="tab-btn" data-tab="scheduler">⏰ Tareas Programadas</button>
+            <button class="tab-btn" data-tab="backup">💾 Backup & Restore</button>
+        </div>
+
+        <!-- Tab: Firewall -->
+        <div class="tab-content active" id="tab-firewall">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🔥 Reglas de Firewall</h2>
+                    <button class="btn btn-success" onclick="showAddFirewallRule()">
+                        ➕ Nueva Regla
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="firewall-rules-list" class="rules-list">
+                        <div class="loading">Cargando reglas...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario para agregar regla -->
+            <div class="modal" id="modal-firewall">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Regla de Firewall</h3>
+                        <span class="modal-close" onclick="closeModal('modal-firewall')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-firewall">
+                            <div class="form-group">
+                                <label>Chain:</label>
+                                <select name="chain" required>
+                                    <option value="input">INPUT (tráfico hacia el router)</option>
+                                    <option value="forward">FORWARD (tráfico que pasa por el router)</option>
+                                    <option value="output">OUTPUT (tráfico desde el router)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Acción:</label>
+                                <select name="action" required>
+                                    <option value="accept">ACCEPT (permitir)</option>
+                                    <option value="drop">DROP (descartar silenciosamente)</option>
+                                    <option value="reject">REJECT (rechazar con respuesta)</option>
+                                    <option value="log">LOG (registrar)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Protocolo:</label>
+                                <select name="protocol">
+                                    <option value="">Todos</option>
+                                    <option value="tcp">TCP</option>
+                                    <option value="udp">UDP</option>
+                                    <option value="icmp">ICMP</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>IP Origen:</label>
+                                <input type="text" name="src-address" placeholder="192.168.1.0/24 o vacío para todas">
+                            </div>
+                            <div class="form-group">
+                                <label>IP Destino:</label>
+                                <input type="text" name="dst-address" placeholder="0.0.0.0/0 o vacío para todas">
+                            </div>
+                            <div class="form-group">
+                                <label>Puerto Destino:</label>
+                                <input type="text" name="dst-port" placeholder="80,443 o rango 8000-9000">
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Descripción de la regla">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Regla</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-firewall')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: NAT -->
+        <div class="tab-content" id="tab-nat">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🔄 Reglas NAT (Port Forwarding)</h2>
+                    <button class="btn btn-success" onclick="showAddNATRule()">
+                        ➕ Nueva Regla NAT
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="nat-rules-list" class="rules-list">
+                        <div class="loading">Cargando reglas NAT...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario NAT -->
+            <div class="modal" id="modal-nat">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Regla NAT</h3>
+                        <span class="modal-close" onclick="closeModal('modal-nat')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-nat">
+                            <div class="form-group">
+                                <label>Tipo:</label>
+                                <select name="chain" required>
+                                    <option value="dstnat">DSTNAT (Port Forwarding)</option>
+                                    <option value="srcnat">SRCNAT (Masquerade)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Acción:</label>
+                                <select name="action" required>
+                                    <option value="dst-nat">DST-NAT (redirigir a IP interna)</option>
+                                    <option value="masquerade">MASQUERADE (ocultar IP)</option>
+                                    <option value="src-nat">SRC-NAT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Protocolo:</label>
+                                <select name="protocol" required>
+                                    <option value="tcp">TCP</option>
+                                    <option value="udp">UDP</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Puerto Externo:</label>
+                                <input type="number" name="dst-port" placeholder="8080" required>
+                            </div>
+                            <div class="form-group">
+                                <label>IP Interna:</label>
+                                <input type="text" name="to-addresses" placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Puerto Interno:</label>
+                                <input type="number" name="to-ports" placeholder="80" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Interfaz de entrada:</label>
+                                <select name="in-interface" id="nat-interfaces">
+                                    <option value="">Todas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Servidor web">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Regla</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-nat')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Ancho de Banda (Queue) -->
+        <div class="tab-content" id="tab-bandwidth">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>📊 Control de Ancho de Banda</h2>
+                    <button class="btn btn-success" onclick="showAddQueue()">
+                        ➕ Nueva Cola (Queue)
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="queue-list" class="rules-list">
+                        <div class="loading">Cargando colas...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario Queue -->
+            <div class="modal" id="modal-queue">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Cola de Tráfico</h3>
+                        <span class="modal-close" onclick="closeModal('modal-queue')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-queue">
+                            <div class="form-group">
+                                <label>Nombre:</label>
+                                <input type="text" name="name" placeholder="Cliente-192.168.1.100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>IP/Red de Destino:</label>
+                                <input type="text" name="target" placeholder="192.168.1.100/32" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Límite de Descarga (Download):</label>
+                                <input type="text" name="max-limit-download" placeholder="10M (10 Mbps)">
+                                <small>Ejemplos: 1M, 10M, 100M</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Límite de Subida (Upload):</label>
+                                <input type="text" name="max-limit-upload" placeholder="5M (5 Mbps)">
+                            </div>
+                            <div class="form-group">
+                                <label>Prioridad (1-8):</label>
+                                <input type="number" name="priority" value="8" min="1" max="8">
+                                <small>1 = Mayor prioridad, 8 = Menor prioridad</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Oficina principal">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Cola</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-queue')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: DHCP -->
+        <div class="tab-content" id="tab-dhcp">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🌐 Servidor DHCP</h2>
+                    <button class="btn btn-success" onclick="showAddDHCPLease()">
+                        ➕ Nueva Reserva DHCP
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="dhcp-leases-list" class="rules-list">
+                        <div class="loading">Cargando reservas DHCP...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario DHCP -->
+            <div class="modal" id="modal-dhcp">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Reserva DHCP</h3>
+                        <span class="modal-close" onclick="closeModal('modal-dhcp')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-dhcp">
+                            <div class="form-group">
+                                <label>Dirección MAC:</label>
+                                <input type="text" name="mac-address" placeholder="00:11:22:33:44:55" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dirección IP:</label>
+                                <input type="text" name="address" placeholder="192.168.1.50" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario/Nombre:</label>
+                                <input type="text" name="comment" placeholder="Servidor de archivos">
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="always-broadcast" value="yes">
+                                    Siempre enviar broadcast
+                                </label>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Reserva</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-dhcp')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Rutas -->
+        <div class="tab-content" id="tab-routes">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🗺️ Tabla de Rutas</h2>
+                    <button class="btn btn-success" onclick="showAddRoute()">
+                        ➕ Nueva Ruta
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="routes-list" class="rules-list">
+                        <div class="loading">Cargando rutas...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario Rutas -->
+            <div class="modal" id="modal-route">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Ruta Estática</h3>
+                        <span class="modal-close" onclick="closeModal('modal-route')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-route">
+                            <div class="form-group">
+                                <label>Red de Destino:</label>
+                                <input type="text" name="dst-address" placeholder="10.0.0.0/24" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Gateway:</label>
+                                <input type="text" name="gateway" placeholder="192.168.1.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Distancia (Métrica):</label>
+                                <input type="number" name="distance" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Ruta a oficina remota">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Ruta</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-route')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Usuarios -->
+        <div class="tab-content" id="tab-users">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>👥 Usuarios del Sistema</h2>
+                    <button class="btn btn-success" onclick="showAddUser()">
+                        ➕ Nuevo Usuario
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="users-list" class="rules-list">
+                        <div class="loading">Cargando usuarios...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario Usuarios -->
+            <div class="modal" id="modal-user">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nuevo Usuario</h3>
+                        <span class="modal-close" onclick="closeModal('modal-user')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-user">
+                            <div class="form-group">
+                                <label>Nombre de Usuario:</label>
+                                <input type="text" name="name" placeholder="admin2" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña:</label>
+                                <input type="password" name="password" placeholder="********" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Grupo:</label>
+                                <select name="group" required>
+                                    <option value="full">Full (acceso completo)</option>
+                                    <option value="read">Read (solo lectura)</option>
+                                    <option value="write">Write (lectura y escritura)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Usuario de soporte">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Crear Usuario</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Tareas Programadas -->
+        <div class="tab-content" id="tab-scheduler">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>⏰ Tareas Programadas (Scheduler)</h2>
+                    <button class="btn btn-success" onclick="showAddScheduler()">
+                        ➕ Nueva Tarea
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div id="scheduler-list" class="rules-list">
+                        <div class="loading">Cargando tareas programadas...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario Scheduler -->
+            <div class="modal" id="modal-scheduler">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Nueva Tarea Programada</h3>
+                        <span class="modal-close" onclick="closeModal('modal-scheduler')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-scheduler">
+                            <div class="form-group">
+                                <label>Nombre:</label>
+                                <input type="text" name="name" placeholder="backup-diario" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Intervalo:</label>
+                                <input type="text" name="interval" placeholder="1d (diario), 1h (cada hora)">
+                                <small>Ejemplos: 1d, 12h, 30m, 1w</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Hora de inicio:</label>
+                                <input type="time" name="start-time">
+                            </div>
+                            <div class="form-group">
+                                <label>Script/Comando:</label>
+                                <textarea name="on-event" rows="5" placeholder="/system backup save name=backup" required></textarea>
+                                <small>Comandos de RouterOS</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Comentario:</label>
+                                <input type="text" name="comment" placeholder="Backup automático diario">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Crear Tarea</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-scheduler')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Backup & Restore -->
+        <div class="tab-content" id="tab-backup">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>💾 Backup y Restauración</h2>
+                </div>
+                
+                <div class="section-body">
+                    <div class="backup-actions">
+                        <div class="backup-card">
+                            <h3>💾 Crear Backup</h3>
+                            <p>Genera un respaldo completo de la configuración del router</p>
+                            <button class="btn btn-success" onclick="createBackup()">
+                                Crear Backup Ahora
+                            </button>
+                        </div>
+
+                        <div class="backup-card">
+                            <h3>📥 Exportar Configuración</h3>
+                            <p>Exporta la configuración en formato texto (.rsc)</p>
+                            <button class="btn btn-primary" onclick="exportConfig()">
+                                Exportar Configuración
+                            </button>
+                        </div>
+
+                        <div class="backup-card">
+                            <h3>🔄 Reiniciar Router</h3>
+                            <p>Reinicia el router MikroTik</p>
+                            <button class="btn btn-warning" onclick="rebootRouter()">
+                                Reiniciar Sistema
+                            </button>
+                        </div>
+
+                        <div class="backup-card">
+                            <h3>⚠️ Reset de Fábrica</h3>
+                            <p>Restaura el router a configuración de fábrica (¡CUIDADO!)</p>
+                            <button class="btn btn-danger" onclick="factoryReset()">
+                                Reset de Fábrica
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="backups-list">
+                        <h3>📋 Backups Disponibles</h3>
+                        <div id="backups-available" class="rules-list">
+                            <div class="loading">Cargando backups...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+</html>

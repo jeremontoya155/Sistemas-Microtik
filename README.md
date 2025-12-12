@@ -2,6 +2,9 @@
 
 Sistema de monitoreo en tiempo real para routers MikroTik desarrollado con Node.js, Express, Socket.IO y EJS.
 
+> 📖 **[Ver guía completa de despliegue automático →](DEPLOYMENT.md)**  
+> ⚙️ **[Panel de Administración →](ADMIN.md)** - ¡NUEVO!
+
 ## 🚀 Características
 
 - **Dashboard Ejecutivo**: Vista única optimizada para pantallas grandes (TVs, monitores)
