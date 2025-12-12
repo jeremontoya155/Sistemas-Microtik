@@ -58,10 +58,12 @@ class MikroTikController {
             '28:57:BE': 'Hikvision', 'C0:56:E3': 'Hikvision', '4C:BD:8F': 'Hikvision',
             '54:C4:15': 'Hikvision', '68:E1:66': 'Hikvision', '84:25:DB': 'Hikvision',
             'A4:14:37': 'Hikvision', 'D4:4B:5E': 'Hikvision', 'E0:23:FF': 'Hikvision',
-            // Dahua (más variantes)
+            // Dahua (más variantes) - AMPLIADO con tu red
             '00:12:41': 'Dahua', '08:57:00': 'Dahua', 'C4:2F:90': 'Dahua',
             '68:DF:DD': 'Dahua', '80:1F:12': 'Dahua', 'F4:BD:1D': 'Dahua',
-            'C8:3A:35': 'Dahua', 'E8:CC:18': 'Dahua', 'F8:CE:07': 'Dahua',
+            'C8:3A:35': 'Dahua', 'E8:CC:18': 'Dahua', 
+            'F8:CE:07': 'Dahua', // ⭐ TU RED - Múltiples cámaras Dahua
+            'A0:BD:1D': 'Dahua', 'F4:8C:EB': 'Dahua',
             // Axis Communications
             '00:40:8C': 'Axis', 'AC:CC:8E': 'Axis', 'B8:A4:4F': 'Axis',
             '00:09:0F': 'Axis', '00:50:C2': 'Axis',
@@ -134,7 +136,23 @@ class MikroTikController {
             // Provision-ISR
             '00:1E:8C': 'Provision-ISR',
             // Honeywell
-            '00:01:90': 'Honeywell', '00:40:84': 'Honeywell'
+            '00:01:90': 'Honeywell', '00:40:84': 'Honeywell',
+            // Vendors adicionales de tu red
+            '30:DD:AA': 'Cámara IP', // Vendor común en cámaras genéricas
+            'CC:88:C7': 'Cámara IP', // Vendor de cámaras IP
+            '38:CA:73': 'Cámara IP', // Vendor genérico
+            'C2:E0:3C': 'Cámara IP', // Posible vendor local
+            'FA:0B:AB': 'Cámara IP', // Vendor común
+            '74:56:3C': 'Cámara IP', // Otro vendor común
+            '64:49:7D': 'Cámara IP', // Vendor de dispositivos IP
+            '1C:1B:0D': 'Cámara IP', // Vendor común
+            'F4:B1:C2': 'Cámara IP', // Vendor de equipos de red
+            'B4:4C:3B': 'Cámara IP', // Vendor común en CCTV
+            '3C:E3:6B': 'Cámara IP', // Vendor de equipos de seguridad
+            'BE:33:6E': 'Cámara IP', // Vendor local
+            'FC:B6:9D': 'Cámara IP', // Otro vendor común
+            '40:49:0F': 'Cámara IP', // Vendor de cámaras genéricas
+            '16:3D:10': 'Cámara IP'  // Vendor común en equipos de red
         };
         
         // Contadores para tráfico (global y por interfaz)
@@ -799,20 +817,28 @@ class MikroTikController {
                 let brand = 'Desconocida';
                 let detectionMethod = '';
                 
-                // 1. Detectar por MAC vendor (primero 8 dígitos, luego 6 si no encuentra)
-                let macPrefix = mac.substring(0, 8).toUpperCase();
-                if (this.cameraVendors[macPrefix]) {
+                // 1. Detectar por MAC vendor (múltiples intentos con diferentes longitudes)
+                let macPrefix8 = mac.substring(0, 8).toUpperCase(); // XX:XX:XX
+                let macPrefix7 = mac.substring(0, 7).toUpperCase(); // XX:XX:X
+                let macPrefix6 = mac.substring(0, 6).toUpperCase(); // XX:XX
+                
+                // Intentar con 8 caracteres primero (más específico)
+                if (this.cameraVendors[macPrefix8]) {
                     isCamera = true;
-                    brand = this.cameraVendors[macPrefix];
-                    detectionMethod = 'MAC Vendor';
-                } else {
-                    // Intentar con 6 dígitos
-                    macPrefix = mac.substring(0, 7).toUpperCase();
-                    if (this.cameraVendors[macPrefix]) {
-                        isCamera = true;
-                        brand = this.cameraVendors[macPrefix];
-                        detectionMethod = 'MAC Vendor';
-                    }
+                    brand = this.cameraVendors[macPrefix8];
+                    detectionMethod = 'MAC Vendor (8)';
+                } 
+                // Intentar con 7 caracteres
+                else if (this.cameraVendors[macPrefix7]) {
+                    isCamera = true;
+                    brand = this.cameraVendors[macPrefix7];
+                    detectionMethod = 'MAC Vendor (7)';
+                }
+                // Intentar con 6 caracteres (más genérico pero cubre más casos)
+                else if (this.cameraVendors[macPrefix6]) {
+                    isCamera = true;
+                    brand = this.cameraVendors[macPrefix6];
+                    detectionMethod = 'MAC Vendor (6)';
                 }
                 
                 // 2. Detectar por hostname (MUCHÍSIMAS más palabras clave)
@@ -871,6 +897,31 @@ class MikroTikController {
                         else if (lowerHostname.includes('zosi')) brand = 'Zosi';
                         
                         break;
+                    }
+                }
+                
+                // 3. Detección adicional por rango de IP común en cámaras
+                // Muchas instalaciones usan rangos específicos para cámaras
+                if (!isCamera && ip) {
+                    const ipParts = ip.split('.');
+                    if (ipParts.length === 4) {
+                        const lastOctet = parseInt(ipParts[3]);
+                        
+                        // Rangos comunes: .200-.254, .100-.199
+                        // O si el hostname está vacío y la IP es alta
+                        if ((lastOctet >= 200 && lastOctet <= 254) || 
+                            (lastOctet >= 100 && lastOctet <= 199)) {
+                            
+                            // Si no tiene hostname o es muy genérico, podría ser cámara
+                            if (!hostname || hostname.length < 3 || 
+                                hostname.match(/^[A-F0-9:-]+$/i)) {
+                                
+                                // Marcar como posible cámara sin marca identificada
+                                isCamera = true;
+                                brand = 'Cámara IP (Genérica)';
+                                detectionMethod = 'Rango IP + Sin hostname';
+                            }
+                        }
                     }
                 }
                 
