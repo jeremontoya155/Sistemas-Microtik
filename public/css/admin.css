@@ -430,3 +430,44 @@
     40% { content: '..'; }
     60%, 100% { content: '...'; }
 }
+
+/* ==================== SCHEDULER ==================== */
+
+.code-text {
+    font-family: 'Courier New', monospace;
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==================== BACKUP ==================== */
+
+.backup-item {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.backup-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.backup-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.backup-details {
+    color: var(--text-secondary);
+    font-size: 12px;
+}

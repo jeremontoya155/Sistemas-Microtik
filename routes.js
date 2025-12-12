@@ -403,6 +403,84 @@ module.exports = (app, controller) => {
             });
         }
     });
+
+    /**
+     * POST /api/admin/nat/add - Agregar regla NAT
+     */
+    app.post('/api/admin/nat/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = Object.entries(req.body).map(([key, value]) => `=${key}=${value}`);
+            await controller.connection.write(['/ip/firewall/nat/add', ...params]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/nat/toggle - Habilitar/deshabilitar regla NAT
+     */
+    app.post('/api/admin/nat/toggle', async (req, res) => {
+        try {
+            const { id, disable } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write([
+                '/ip/firewall/nat/set',
+                `=.id=${id}`,
+                `=disabled=${disable}`
+            ]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/nat/delete - Eliminar regla NAT
+     */
+    app.post('/api/admin/nat/delete', async (req, res) => {
+        try {
+            const { id } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write(['/ip/firewall/nat/remove', `=.id=${id}`]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
     
     /**
      * GET /api/admin/queue/simple - Obtener colas simples
@@ -429,6 +507,84 @@ module.exports = (app, controller) => {
             });
         }
     });
+
+    /**
+     * POST /api/admin/queue/add - Agregar cola simple
+     */
+    app.post('/api/admin/queue/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = Object.entries(req.body).map(([key, value]) => `=${key}=${value}`);
+            await controller.connection.write(['/queue/simple/add', ...params]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/queue/toggle - Habilitar/deshabilitar cola
+     */
+    app.post('/api/admin/queue/toggle', async (req, res) => {
+        try {
+            const { id, disable } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write([
+                '/queue/simple/set',
+                `=.id=${id}`,
+                `=disabled=${disable}`
+            ]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/queue/delete - Eliminar cola
+     */
+    app.post('/api/admin/queue/delete', async (req, res) => {
+        try {
+            const { id } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write(['/queue/simple/remove', `=.id=${id}`]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
     
     /**
      * GET /api/interfaces - Obtener interfaces
@@ -447,6 +603,633 @@ module.exports = (app, controller) => {
             res.json({
                 success: true,
                 interfaces: interfaces
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== API: DHCP ====================
+    
+    /**
+     * GET /api/admin/dhcp/leases - Obtener leases DHCP
+     */
+    app.get('/api/admin/dhcp/leases', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const leases = await controller.connection.write('/ip/dhcp-server/lease/print');
+            
+            res.json({
+                success: true,
+                leases: leases
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/dhcp/add - Agregar reserva DHCP
+     */
+    app.post('/api/admin/dhcp/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = [];
+            Object.entries(req.body).forEach(([key, value]) => {
+                if (value) params.push(`=${key}=${value}`);
+            });
+            
+            await controller.connection.write('/ip/dhcp-server/lease/add', params);
+            
+            res.json({
+                success: true,
+                message: 'Reserva DHCP agregada correctamente'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/dhcp/delete - Eliminar reserva DHCP
+     */
+    app.post('/api/admin/dhcp/delete', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id } = req.body;
+            
+            await controller.connection.write('/ip/dhcp-server/lease/remove', [
+                `=.id=${id}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: 'Reserva DHCP eliminada'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/dhcp/make-static - Convertir lease a estático
+     */
+    app.post('/api/admin/dhcp/make-static', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id } = req.body;
+            
+            await controller.connection.write('/ip/dhcp-server/lease/make-static', [
+                `=.id=${id}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: 'Lease convertido a estático'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== API: RUTAS ====================
+    
+    /**
+     * GET /api/admin/routes - Obtener rutas
+     */
+    app.get('/api/admin/routes', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const routes = await controller.connection.write('/ip/route/print');
+            
+            res.json({
+                success: true,
+                routes: routes
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/routes/add - Agregar ruta estática
+     */
+    app.post('/api/admin/routes/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = [];
+            Object.entries(req.body).forEach(([key, value]) => {
+                if (value) params.push(`=${key}=${value}`);
+            });
+            
+            await controller.connection.write('/ip/route/add', params);
+            
+            res.json({
+                success: true,
+                message: 'Ruta agregada correctamente'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/routes/delete - Eliminar ruta
+     */
+    app.post('/api/admin/routes/delete', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id } = req.body;
+            
+            await controller.connection.write('/ip/route/remove', [
+                `=.id=${id}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: 'Ruta eliminada'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/routes/toggle - Habilitar/Deshabilitar ruta
+     */
+    app.post('/api/admin/routes/toggle', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id, disable } = req.body;
+            
+            await controller.connection.write('/ip/route/set', [
+                `=.id=${id}`,
+                `=disabled=${disable ? 'yes' : 'no'}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: disable ? 'Ruta deshabilitada' : 'Ruta habilitada'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== API: USUARIOS ====================
+    
+    /**
+     * GET /api/admin/users - Obtener usuarios del sistema
+     */
+    app.get('/api/admin/users', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const users = await controller.connection.write('/user/print');
+            
+            res.json({
+                success: true,
+                users: users
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/users/add - Agregar usuario
+     */
+    app.post('/api/admin/users/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = [];
+            Object.entries(req.body).forEach(([key, value]) => {
+                if (value) params.push(`=${key}=${value}`);
+            });
+            
+            await controller.connection.write('/user/add', params);
+            
+            res.json({
+                success: true,
+                message: 'Usuario creado correctamente'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/users/delete - Eliminar usuario
+     */
+    app.post('/api/admin/users/delete', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id } = req.body;
+            
+            await controller.connection.write('/user/remove', [
+                `=.id=${id}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: 'Usuario eliminado'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/users/toggle - Habilitar/Deshabilitar usuario
+     */
+    app.post('/api/admin/users/toggle', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const { id, disable } = req.body;
+            
+            await controller.connection.write('/user/set', [
+                `=.id=${id}`,
+                `=disabled=${disable ? 'yes' : 'no'}`
+            ]);
+            
+            res.json({
+                success: true,
+                message: disable ? 'Usuario deshabilitado' : 'Usuario habilitado'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== SCHEDULER ====================
+    
+    /**
+     * GET /api/admin/scheduler - Obtener tareas programadas
+     */
+    app.get('/api/admin/scheduler', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const tasks = await controller.connection.write('/system/scheduler/print');
+            
+            res.json({
+                success: true,
+                tasks: tasks
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/scheduler/add - Agregar tarea programada
+     */
+    app.post('/api/admin/scheduler/add', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = Object.entries(req.body).map(([key, value]) => `=${key}=${value}`);
+            await controller.connection.write(['/system/scheduler/add', ...params]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/scheduler/toggle - Habilitar/Deshabilitar tarea
+     */
+    app.post('/api/admin/scheduler/toggle', async (req, res) => {
+        try {
+            const { id, disable } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write([
+                '/system/scheduler/set',
+                `=.id=${id}`,
+                `=disabled=${disable}`
+            ]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/scheduler/delete - Eliminar tarea
+     */
+    app.post('/api/admin/scheduler/delete', async (req, res) => {
+        try {
+            const { id } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write(['/system/scheduler/remove', `=.id=${id}`]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    // ==================== BACKUP & SYSTEM ====================
+    
+    /**
+     * POST /api/admin/backup/create - Crear backup
+     */
+    app.post('/api/admin/backup/create', async (req, res) => {
+        try {
+            const { name } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const backupName = name || `backup-${Date.now()}`;
+            
+            await controller.connection.write([
+                '/system/backup/save',
+                `=name=${backupName}`
+            ]);
+            
+            res.json({ 
+                success: true,
+                message: `Backup "${backupName}" creado correctamente`,
+                filename: backupName + '.backup'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * GET /api/admin/backup/list - Listar backups
+     */
+    app.get('/api/admin/backup/list', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const files = await controller.connection.write('/file/print');
+            const backups = files.filter(file => file.name.endsWith('.backup'));
+            
+            res.json({
+                success: true,
+                backups: backups
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/backup/export - Exportar configuración
+     */
+    app.post('/api/admin/backup/export', async (req, res) => {
+        try {
+            const { name } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const exportName = name || `export-${Date.now()}`;
+            
+            await controller.connection.write([
+                '/export',
+                `=file=${exportName}`
+            ]);
+            
+            res.json({ 
+                success: true,
+                message: `Configuración exportada como "${exportName}.rsc"`,
+                filename: exportName + '.rsc'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/system/reboot - Reiniciar router
+     */
+    app.post('/api/admin/system/reboot', async (req, res) => {
+        try {
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            // Programar reinicio en 5 segundos
+            await controller.connection.write('/system/reboot');
+            
+            res.json({ 
+                success: true,
+                message: 'Router reiniciándose...'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/admin/system/reset - Reset de fábrica
+     */
+    app.post('/api/admin/system/reset', async (req, res) => {
+        try {
+            const { confirm } = req.body;
+            
+            if (confirm !== 'RESET') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Confirmación incorrecta. Escribe RESET para confirmar.'
+                });
+            }
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            await controller.connection.write([
+                '/system/reset-configuration',
+                '=no-defaults=yes'
+            ]);
+            
+            res.json({ 
+                success: true,
+                message: 'Router reseteándose a configuración de fábrica...'
             });
         } catch (error) {
             res.status(500).json({
