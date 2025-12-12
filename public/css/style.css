@@ -310,6 +310,30 @@ body {
     75% { transform: translateX(3px); }
 }
 
+/* Selector de WAN */
+.wan-selector {
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.wan-selector:hover {
+    border-color: var(--accent);
+    background: var(--bg-secondary);
+}
+
+.wan-selector:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(91, 155, 213, 0.2);
+}
+
 /* ==================== RECURSOS ==================== */
 
 .resource-item {

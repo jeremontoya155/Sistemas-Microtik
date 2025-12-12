@@ -112,9 +112,39 @@ module.exports = (app, controller) => {
      */
     app.get('/api/interfaces', (req, res) => {
         res.json({
+            success: true,
             interfaces: controller.data.interfaces,
             total: controller.data.interfaces.length
         });
+    });
+    
+    /**
+     * POST /api/select-interface - Cambiar interfaz seleccionada para el gráfico
+     */
+    app.post('/api/select-interface', (req, res) => {
+        try {
+            const { interface: interfaceName } = req.body;
+            
+            if (!interfaceName) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Debe especificar una interfaz'
+                });
+            }
+            
+            controller.setSelectedInterface(interfaceName);
+            
+            res.json({
+                success: true,
+                message: `Interfaz cambiada a: ${interfaceName}`,
+                selected: interfaceName
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
     });
     
     /**
@@ -137,6 +167,49 @@ module.exports = (app, controller) => {
             cameras: camerasData.cameras,
             total: camerasData.cameras.length
         });
+    });
+    
+    /**
+     * POST /api/cameras/manual - Agregar cámara manualmente
+     */
+    app.post('/api/cameras/manual', async (req, res) => {
+        try {
+            const { ip, mac, hostname, brand } = req.body;
+            
+            if (!ip) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La IP es obligatoria'
+                });
+            }
+            
+            // Agregar a la lista de cámaras
+            const manualCamera = {
+                id: 'manual-' + Date.now(),
+                ip: ip,
+                mac: mac || 'N/A',
+                hostname: hostname || 'Cámara Manual',
+                brand: brand || 'Manual',
+                status: 'online',
+                detectionMethod: 'Manual',
+                static: true,
+                manual: true
+            };
+            
+            controller.cameras.push(manualCamera);
+            controller.io.emit('cameras_update', { data: controller.cameras });
+            
+            res.json({
+                success: true,
+                message: 'Cámara agregada manualmente',
+                camera: manualCamera
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
     });
     
     /**
@@ -430,6 +503,39 @@ module.exports = (app, controller) => {
             
             const params = Object.entries(req.body).map(([key, value]) => `=${key}=${value}`);
             await controller.connection.write(['/ip/firewall/nat/add', ...params]);
+            
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/nat/edit - Editar regla NAT
+     */
+    app.post('/api/admin/nat/edit', async (req, res) => {
+        try {
+            const { id, changes } = req.body;
+            
+            if (!controller.isConnected) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No conectado al MikroTik'
+                });
+            }
+            
+            const params = Object.entries(changes)
+                .filter(([key, value]) => value)
+                .map(([key, value]) => `=${key}=${value}`);
+            
+            await controller.connection.write([
+                '/ip/firewall/nat/set',
+                `=.id=${id}`,
+                ...params
+            ]);
             
             res.json({ success: true });
         } catch (error) {

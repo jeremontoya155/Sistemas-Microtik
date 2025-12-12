@@ -35,6 +35,7 @@
             <button class="tab-btn" data-tab="nat">🔄 NAT</button>
             <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
             <button class="tab-btn" data-tab="cameras">📹 Cámaras</button>
+            <button class="tab-btn" data-tab="wans">🔀 Failover WANs</button>
             <button class="tab-btn" data-tab="dhcp">🌐 DHCP</button>
             <button class="tab-btn" data-tab="routes">🗺️ Rutas</button>
             <button class="tab-btn" data-tab="users">👥 Usuarios</button>
@@ -267,9 +268,14 @@
             <div class="admin-section">
                 <div class="section-header">
                     <h2>📹 Cámaras IP Detectadas</h2>
-                    <button class="btn btn-primary" onclick="loadCameras()">
-                        🔄 Actualizar
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-success" onclick="showAddManualCamera()">
+                            ➕ Agregar Manual
+                        </button>
+                        <button class="btn btn-primary" onclick="loadCameras()">
+                            🔄 Actualizar
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="section-body">
@@ -290,6 +296,121 @@
                     
                     <div id="cameras-list" class="cameras-grid">
                         <div class="loading">Cargando cámaras...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Agregar Cámara Manual -->
+            <div class="modal" id="modal-camera-manual">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>➕ Agregar Cámara Manualmente</h3>
+                        <span class="modal-close" onclick="closeModal('modal-camera-manual')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-camera-manual">
+                            <div class="form-group">
+                                <label>IP de la Cámara: *</label>
+                                <input type="text" name="ip" placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre / Ubicación:</label>
+                                <input type="text" name="hostname" placeholder="Cámara Entrada Principal">
+                            </div>
+                            <div class="form-group">
+                                <label>Marca:</label>
+                                <select name="brand">
+                                    <option value="Desconocida">Desconocida</option>
+                                    <option value="Hikvision">Hikvision</option>
+                                    <option value="Dahua">Dahua</option>
+                                    <option value="Axis">Axis</option>
+                                    <option value="TP-Link">TP-Link / Tapo</option>
+                                    <option value="Uniview">Uniview</option>
+                                    <option value="Reolink">Reolink</option>
+                                    <option value="Xiaomi">Xiaomi / Yi</option>
+                                    <option value="Ubiquiti">Ubiquiti UniFi</option>
+                                    <option value="Samsung">Samsung Wisenet</option>
+                                    <option value="Google Nest">Google Nest</option>
+                                    <option value="Ring">Ring</option>
+                                    <option value="Arlo">Arlo</option>
+                                    <option value="Otra">Otra Marca</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>MAC Address (opcional):</label>
+                                <input type="text" name="mac" placeholder="AA:BB:CC:DD:EE:FF">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar Cámara</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-camera-manual')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Failover WANs -->
+        <div class="tab-content" id="tab-wans">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🔀 Configuración de Failover y Balanceo de WANs</h2>
+                    <button class="btn btn-primary" onclick="loadWANsConfig()">
+                        🔄 Actualizar
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <!-- Estado actual de WANs -->
+                    <div class="wans-status-section">
+                        <h3>📊 Estado Actual de WANs</h3>
+                        <div id="wans-status-list" class="wans-status-grid">
+                            <div class="loading">Cargando WANs...</div>
+                        </div>
+                    </div>
+
+                    <!-- Instrucciones de configuración -->
+                    <div class="wans-info-section">
+                        <h3>⚙️ Configuración de Failover</h3>
+                        <div class="info-card">
+                            <h4>🎯 Opciones de Configuración:</h4>
+                            <ul>
+                                <li><strong>PCC (Per Connection Classifier):</strong> Balanceo de carga avanzado</li>
+                                <li><strong>Distance & Check Gateway:</strong> Failover automático basado en distancia de rutas</li>
+                                <li><strong>Recursive Routing:</strong> Monitoreo activo con Netwatch</li>
+                            </ul>
+                            
+                            <h4>📝 Configuración Manual Recomendada:</h4>
+                            <pre class="code-block">
+# 1. Configurar distancias en rutas (Gateway Check)
+/ip route
+add dst-address=0.0.0.0/0 gateway=<WAN1_IP> distance=1 check-gateway=ping
+add dst-address=0.0.0.0/0 gateway=<WAN2_IP> distance=2 check-gateway=ping
+
+# 2. Configurar Netwatch para monitoreo
+/tool netwatch
+add host=8.8.8.8 interval=10s down-script="/ip route set [find gateway=<WAN1_IP>] disabled=yes"
+add host=8.8.8.8 interval=10s up-script="/ip route set [find gateway=<WAN1_IP>] disabled=no"
+
+# 3. Marcar rutas para balanceo PCC
+/ip route
+add dst-address=0.0.0.0/0 gateway=<WAN1_IP> routing-mark=to-wan1
+add dst-address=0.0.0.0/0 gateway=<WAN2_IP> routing-mark=to-wan2
+                            </pre>
+                            
+                            <p style="margin-top: 15px;">
+                                💡 <strong>Tip:</strong> Para configuración avanzada, accede a WinBox o WebFig del MikroTik.
+                                Esta interfaz permite monitorear y hacer cambios básicos de rutas.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Rutas activas -->
+                    <div class="wans-routes-section">
+                        <h3>🗺️ Rutas por Defecto Configuradas</h3>
+                        <div id="wan-routes-list" class="routes-list">
+                            <div class="loading">Cargando rutas...</div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -34,6 +34,7 @@ const elements = {
     // Tráfico
     rxValue: document.getElementById('rx-value'),
     txValue: document.getElementById('tx-value'),
+    wanSelector: document.getElementById('wan-selector'),
     
     // Logs
     logsList: document.getElementById('logs-list'),
@@ -241,6 +242,9 @@ function updateInterfaces(data) {
     }
     
     elements.interfacesCount.textContent = interfaces.length;
+    
+    // Actualizar selector de WAN
+    updateWANSelector(interfaces);
     
     elements.interfacesList.innerHTML = interfaces.map(iface => `
         <div class="interface-item ${iface.running ? 'running' : 'disabled'}">
@@ -512,6 +516,62 @@ async function disconnectDevice(mac) {
         console.error('Error:', error);
         alert('Error al desconectar dispositivo');
     }
+}
+
+// ==================== SELECTOR DE WAN ==================== //
+
+function updateWANSelector(interfaces) {
+    if (!elements.wanSelector) return;
+    
+    // Filtrar solo interfaces que podrían ser WANs
+    const wanKeywords = ['wan', 'ether1', 'ether2', 'pppoe', 'lte', 'sfp', 'fiber'];
+    const wanInterfaces = interfaces.filter(iface => {
+        const name = iface.name.toLowerCase();
+        return wanKeywords.some(keyword => name.includes(keyword)) || iface.running;
+    });
+    
+    // Construir opciones
+    let options = '<option value="all">📡 Todas las Interfaces</option>';
+    
+    wanInterfaces.forEach(iface => {
+        const icon = iface.running ? '🟢' : '🔴';
+        options += `<option value="${iface.name}">${icon} ${iface.name}</option>`;
+    });
+    
+    elements.wanSelector.innerHTML = options;
+}
+
+// Manejar cambio de interfaz
+if (elements.wanSelector) {
+    elements.wanSelector.addEventListener('change', async (e) => {
+        const selectedInterface = e.target.value;
+        
+        try {
+            const response = await fetch('/api/select-interface', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interface: selectedInterface })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ Interfaz cambiada a: ${selectedInterface}`);
+                
+                // Limpiar gráfico para mostrar nuevos datos
+                if (trafficChart) {
+                    trafficChart.data.labels = [];
+                    trafficChart.data.datasets[0].data = [];
+                    trafficChart.data.datasets[1].data = [];
+                    trafficChart.update();
+                }
+            } else {
+                console.error('Error cambiando interfaz:', result.message);
+            }
+        } catch (error) {
+            console.error('Error cambiando interfaz:', error);
+        }
+    });
 }
 
 // ==================== ALERTAS ==================== //

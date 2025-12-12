@@ -118,7 +118,12 @@
             <!-- Gráfico de Tráfico -->
             <div class="card card-traffic">
                 <div class="card-header">
-                    <h3>📊 RENDIMIENTO EN TIEMPO REAL (RX/TX)</h3>
+                    <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                        <h3>📊 RENDIMIENTO EN TIEMPO REAL (RX/TX)</h3>
+                        <select id="wan-selector" class="wan-selector">
+                            <option value="all">📡 Todas las Interfaces</option>
+                        </select>
+                    </div>
                     <div class="traffic-stats">
                         <span class="stat-rx">↓ <span id="rx-value">0.00 Mbps</span></span>
                         <span class="stat-tx">↑ <span id="tx-value">0.00 Mbps</span></span>

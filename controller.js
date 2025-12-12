@@ -51,46 +51,100 @@ class MikroTikController {
         // Cámaras detectadas
         this.cameras = [];
         
-        // Base de datos de vendors de cámaras (primeros 6 dígitos del MAC)
+        // Base de datos EXTENSA de vendors de cámaras (primeros 6 o 8 dígitos del MAC)
         this.cameraVendors = {
-            // Hikvision
-            '00:12:12': 'Hikvision',
-            '44:19:B6': 'Hikvision',
-            'BC:AD:28': 'Hikvision',
-            '28:57:BE': 'Hikvision',
-            'C0:56:E3': 'Hikvision',
-            // Dahua
-            '00:12:41': 'Dahua',
-            '08:57:00': 'Dahua',
-            'C4:2F:90': 'Dahua',
-            '68:DF:DD': 'Dahua',
-            // Axis
-            '00:40:8C': 'Axis',
-            'AC:CC:8E': 'Axis',
-            'B8:A4:4F': 'Axis',
-            // TP-Link (Tapo, etc)
-            '50:C7:BF': 'TP-Link',
-            'A4:2B:B0': 'TP-Link',
-            '1C:3B:F3': 'TP-Link',
+            // Hikvision (más variantes)
+            '00:12:12': 'Hikvision', '44:19:B6': 'Hikvision', 'BC:AD:28': 'Hikvision',
+            '28:57:BE': 'Hikvision', 'C0:56:E3': 'Hikvision', '4C:BD:8F': 'Hikvision',
+            '54:C4:15': 'Hikvision', '68:E1:66': 'Hikvision', '84:25:DB': 'Hikvision',
+            'A4:14:37': 'Hikvision', 'D4:4B:5E': 'Hikvision', 'E0:23:FF': 'Hikvision',
+            // Dahua (más variantes)
+            '00:12:41': 'Dahua', '08:57:00': 'Dahua', 'C4:2F:90': 'Dahua',
+            '68:DF:DD': 'Dahua', '80:1F:12': 'Dahua', 'F4:BD:1D': 'Dahua',
+            'C8:3A:35': 'Dahua', 'E8:CC:18': 'Dahua', 'F8:CE:07': 'Dahua',
+            // Axis Communications
+            '00:40:8C': 'Axis', 'AC:CC:8E': 'Axis', 'B8:A4:4F': 'Axis',
+            '00:09:0F': 'Axis', '00:50:C2': 'Axis',
+            // TP-Link / Tapo
+            '50:C7:BF': 'TP-Link', 'A4:2B:B0': 'TP-Link', '1C:3B:F3': 'TP-Link',
+            '98:DA:C4': 'TP-Link', 'C0:25:E9': 'TP-Link', 'D8:07:B6': 'TP-Link',
+            'E8:48:B8': 'TP-Link', 'F4:F2:6D': 'TP-Link',
             // Uniview
-            '00:12:16': 'Uniview',
+            '00:12:16': 'Uniview', '48:F8:50': 'Uniview',
             // Vivotek
-            '00:02:D1': 'Vivotek',
+            '00:02:D1': 'Vivotek', '00:0E:65': 'Vivotek',
             // Foscam
-            '00:1F:AF': 'Foscam',
-            // Xiaomi/Yi
-            '34:CE:00': 'Xiaomi',
-            '78:11:DC': 'Xiaomi',
+            '00:1F:AF': 'Foscam', '3C:67:8C': 'Foscam', '98:5D:AD': 'Foscam',
+            // Xiaomi / Yi / Imilab
+            '34:CE:00': 'Xiaomi', '78:11:DC': 'Xiaomi', '64:90:C1': 'Xiaomi',
+            '78:8A:20': 'Xiaomi', 'F0:B4:29': 'Xiaomi', '50:EC:50': 'Xiaomi',
             // Wyze
-            '2C:AA:8E': 'Wyze',
+            '2C:AA:8E': 'Wyze', '7C:78:B2': 'Wyze',
             // Reolink
-            'EC:71:DB': 'Reolink'
+            'EC:71:DB': 'Reolink', '00:03:7F': 'Reolink',
+            // Amcrest
+            '9C:8E:CD': 'Amcrest', '00:1D:0F': 'Amcrest',
+            // Lorex
+            '00:11:32': 'Lorex',
+            // Swann
+            '00:0C:E5': 'Swann', '3C:15:C2': 'Swann',
+            // Samsung Wisenet
+            '00:09:18': 'Samsung', '00:16:6C': 'Samsung', 'A0:91:69': 'Samsung',
+            'C4:71:54': 'Samsung', 'E4:7C:F9': 'Samsung',
+            // Sony
+            '00:04:1F': 'Sony', '00:1D:BA': 'Sony', '08:00:46': 'Sony',
+            // Panasonic
+            '00:0D:C5': 'Panasonic', '00:80:F0': 'Panasonic', '8C:F5:A3': 'Panasonic',
+            // Bosch
+            '00:0F:7C': 'Bosch', '00:11:25': 'Bosch',
+            // Hanwha (ex Samsung Techwin)
+            '00:09:18': 'Hanwha', '00:12:23': 'Hanwha',
+            // Avigilon
+            '00:18:85': 'Avigilon',
+            // Mobotix
+            '00:03:C5': 'Mobotix',
+            // Geovision
+            '00:06:5B': 'Geovision',
+            // ACTi
+            '00:04:21': 'ACTi',
+            // Ubiquiti UniFi Protect
+            '00:27:22': 'Ubiquiti', '24:5A:4C': 'Ubiquiti', '70:A7:41': 'Ubiquiti',
+            '74:83:C2': 'Ubiquiti', '78:45:58': 'Ubiquiti', 'B4:FB:E4': 'Ubiquiti',
+            'DC:9F:DB': 'Ubiquiti', 'F0:9F:C2': 'Ubiquiti',
+            // Nest / Google
+            '18:B4:30': 'Google Nest', '64:16:66': 'Google Nest',
+            // Ring
+            '74:C6:3B': 'Ring', 'B0:C7:45': 'Ring',
+            // Arlo
+            '00:18:DD': 'Arlo',
+            // Blink
+            'A0:02:DC': 'Blink',
+            // Eufy
+            'E0:B9:4D': 'Eufy',
+            // Ezviz
+            '08:10:77': 'Ezviz', '18:67:B0': 'Ezviz',
+            // Imou (Dahua sub-brand)
+            'F0:79:59': 'Imou',
+            // Annke
+            '08:EA:40': 'Annke',
+            // Zosi
+            '00:48:8D': 'Zosi',
+            // Hiwatch (Hikvision sub-brand)
+            '6C:07:8D': 'Hiwatch',
+            // Provision-ISR
+            '00:1E:8C': 'Provision-ISR',
+            // Honeywell
+            '00:01:90': 'Honeywell', '00:40:84': 'Honeywell'
         };
         
-        // Contadores para tráfico
+        // Contadores para tráfico (global y por interfaz)
         this.prevRx = 0;
         this.prevTx = 0;
         this.counter = 0;
+        
+        // Tráfico por interfaz
+        this.interfaceTraffic = {}; // { interfaceName: { prevRx, prevTx, rxMbps, txMbps } }
+        this.selectedInterface = 'all'; // Interfaz seleccionada para el gráfico
         
         // Intervalos
         this.intervals = {};
@@ -505,14 +559,39 @@ class MikroTikController {
             let totalErrors = 0;
             let totalDrops = 0;
             
+            // Calcular tráfico por interfaz individual
             interfaces.forEach(iface => {
+                const ifaceName = iface.name;
+                const ifaceRx = parseInt(iface['rx-byte'] || 0);
+                const ifaceTx = parseInt(iface['tx-byte'] || 0);
+                
                 if (iface.running === 'true') {
-                    totalRx += parseInt(iface['rx-byte'] || 0);
-                    totalTx += parseInt(iface['tx-byte'] || 0);
+                    // Acumular totales
+                    totalRx += ifaceRx;
+                    totalTx += ifaceTx;
                     totalRxPackets += parseInt(iface['rx-packet'] || 0);
                     totalTxPackets += parseInt(iface['tx-packet'] || 0);
                     totalErrors += parseInt(iface['rx-error'] || 0) + parseInt(iface['tx-error'] || 0);
                     totalDrops += parseInt(iface['rx-drop'] || 0) + parseInt(iface['tx-drop'] || 0);
+                    
+                    // Inicializar tracking de interfaz si no existe
+                    if (!this.interfaceTraffic[ifaceName]) {
+                        this.interfaceTraffic[ifaceName] = {
+                            prevRx: ifaceRx,
+                            prevTx: ifaceTx,
+                            rxMbps: 0,
+                            txMbps: 0
+                        };
+                    } else {
+                        // Calcular velocidad para esta interfaz
+                        const rxSpeed = (ifaceRx - this.interfaceTraffic[ifaceName].prevRx) * 8 / 1000000;
+                        const txSpeed = (ifaceTx - this.interfaceTraffic[ifaceName].prevTx) * 8 / 1000000;
+                        
+                        this.interfaceTraffic[ifaceName].rxMbps = Math.max(0, rxSpeed);
+                        this.interfaceTraffic[ifaceName].txMbps = Math.max(0, txSpeed);
+                        this.interfaceTraffic[ifaceName].prevRx = ifaceRx;
+                        this.interfaceTraffic[ifaceName].prevTx = ifaceTx;
+                    }
                 }
             });
             
@@ -545,11 +624,20 @@ class MikroTikController {
             this.rxData.push(rxMbps);
             this.txData.push(txMbps);
             
+            // Determinar qué datos enviar según la interfaz seleccionada
+            let displayRx = rxMbps;
+            let displayTx = txMbps;
+            
+            if (this.selectedInterface !== 'all' && this.interfaceTraffic[this.selectedInterface]) {
+                displayRx = this.interfaceTraffic[this.selectedInterface].rxMbps;
+                displayTx = this.interfaceTraffic[this.selectedInterface].txMbps;
+            }
+            
             // Emitir datos via WebSocket SIEMPRE (incluso en primer ciclo)
             const trafficData = {
                 time: this.counter,
-                rx: parseFloat(rxMbps.toFixed(2)),
-                tx: parseFloat(txMbps.toFixed(2)),
+                rx: parseFloat(displayRx.toFixed(2)),
+                tx: parseFloat(displayTx.toFixed(2)),
                 totalRx: this.formatBytes(totalRx),
                 totalTx: this.formatBytes(totalTx),
                 peakRx: parseFloat(this.peakRx.toFixed(2)),
@@ -557,7 +645,9 @@ class MikroTikController {
                 packetsRx: totalRxPackets,
                 packetsTx: totalTxPackets,
                 errors: totalErrors,
-                drops: totalDrops
+                drops: totalDrops,
+                selectedInterface: this.selectedInterface,
+                interfaceTraffic: this.interfaceTraffic
             };
             
             this.io.emit('traffic_update', trafficData);
@@ -677,6 +767,16 @@ class MikroTikController {
         };
     }
     
+    // Cambiar interfaz seleccionada para el gráfico
+    setSelectedInterface(interfaceName) {
+        this.selectedInterface = interfaceName;
+        console.log(`📡 Interfaz seleccionada para gráfico: ${interfaceName}`);
+    }
+    
+    getInterfaces() {
+        return this.interfaces;
+    }
+    
     // ==================== DETECCIÓN DE CÁMARAS ====================
     
     async loadCameras() {
@@ -699,20 +799,41 @@ class MikroTikController {
                 let brand = 'Desconocida';
                 let detectionMethod = '';
                 
-                // 1. Detectar por MAC vendor
-                const macPrefix = mac.substring(0, 8).toUpperCase();
+                // 1. Detectar por MAC vendor (primero 8 dígitos, luego 6 si no encuentra)
+                let macPrefix = mac.substring(0, 8).toUpperCase();
                 if (this.cameraVendors[macPrefix]) {
                     isCamera = true;
                     brand = this.cameraVendors[macPrefix];
                     detectionMethod = 'MAC Vendor';
+                } else {
+                    // Intentar con 6 dígitos
+                    macPrefix = mac.substring(0, 7).toUpperCase();
+                    if (this.cameraVendors[macPrefix]) {
+                        isCamera = true;
+                        brand = this.cameraVendors[macPrefix];
+                        detectionMethod = 'MAC Vendor';
+                    }
                 }
                 
-                // 2. Detectar por hostname
+                // 2. Detectar por hostname (MUCHÍSIMAS más palabras clave)
                 const lowerHostname = hostname.toLowerCase();
                 const cameraKeywords = [
-                    'camera', 'cam', 'ipcam', 'ip-cam', 'cctv',
-                    'hikvision', 'dahua', 'axis', 'vivotek', 'foscam',
-                    'nvr', 'dvr', 'surveillance', 'vigilancia'
+                    // Generales
+                    'camera', 'cam', 'ipcam', 'ip-cam', 'ipc', 'cctv', 'webcam',
+                    'nvr', 'dvr', 'xvr', 'surveillance', 'vigilancia', 'seguridad',
+                    'recorder', 'monitor', 'cámara', 'camara',
+                    // Marcas principales
+                    'hikvision', 'hik', 'dahua', 'axis', 'vivotek', 'foscam',
+                    'uniview', 'reolink', 'amcrest', 'lorex', 'swann',
+                    'samsung', 'wisenet', 'sony', 'panasonic', 'bosch',
+                    'hanwha', 'avigilon', 'mobotix', 'geovision', 'acti',
+                    // Marcas consumo
+                    'tapo', 'tp-link', 'xiaomi', 'yi', 'imilab', 'wyze',
+                    'nest', 'ring', 'arlo', 'blink', 'eufy', 'ezviz',
+                    'imou', 'annke', 'zosi', 'hiwatch',
+                    // Términos técnicos
+                    'dome', 'bullet', 'ptz', 'turret', 'fisheye',
+                    'speed', 'thermal', 'ir', 'night', 'outdoor', 'indoor'
                 ];
                 
                 for (const keyword of cameraKeywords) {
@@ -720,13 +841,34 @@ class MikroTikController {
                         isCamera = true;
                         if (!detectionMethod) detectionMethod = 'Hostname';
                         
-                        // Intentar extraer marca del hostname
-                        if (lowerHostname.includes('hikvision')) brand = 'Hikvision';
+                        // Intentar extraer marca del hostname (AMPLIADO)
+                        if (lowerHostname.includes('hikvision') || lowerHostname.includes('hik')) brand = 'Hikvision';
                         else if (lowerHostname.includes('dahua')) brand = 'Dahua';
                         else if (lowerHostname.includes('axis')) brand = 'Axis';
                         else if (lowerHostname.includes('tp-link') || lowerHostname.includes('tapo')) brand = 'TP-Link';
-                        else if (lowerHostname.includes('xiaomi') || lowerHostname.includes('yi')) brand = 'Xiaomi';
+                        else if (lowerHostname.includes('xiaomi') || lowerHostname.includes('yi') || lowerHostname.includes('imilab')) brand = 'Xiaomi';
                         else if (lowerHostname.includes('reolink')) brand = 'Reolink';
+                        else if (lowerHostname.includes('uniview')) brand = 'Uniview';
+                        else if (lowerHostname.includes('vivotek')) brand = 'Vivotek';
+                        else if (lowerHostname.includes('foscam')) brand = 'Foscam';
+                        else if (lowerHostname.includes('amcrest')) brand = 'Amcrest';
+                        else if (lowerHostname.includes('lorex')) brand = 'Lorex';
+                        else if (lowerHostname.includes('swann')) brand = 'Swann';
+                        else if (lowerHostname.includes('samsung') || lowerHostname.includes('wisenet')) brand = 'Samsung';
+                        else if (lowerHostname.includes('sony')) brand = 'Sony';
+                        else if (lowerHostname.includes('panasonic')) brand = 'Panasonic';
+                        else if (lowerHostname.includes('bosch')) brand = 'Bosch';
+                        else if (lowerHostname.includes('ubiquiti') || lowerHostname.includes('unifi')) brand = 'Ubiquiti';
+                        else if (lowerHostname.includes('nest') || lowerHostname.includes('google')) brand = 'Google Nest';
+                        else if (lowerHostname.includes('ring')) brand = 'Ring';
+                        else if (lowerHostname.includes('arlo')) brand = 'Arlo';
+                        else if (lowerHostname.includes('blink')) brand = 'Blink';
+                        else if (lowerHostname.includes('eufy')) brand = 'Eufy';
+                        else if (lowerHostname.includes('ezviz')) brand = 'Ezviz';
+                        else if (lowerHostname.includes('wyze')) brand = 'Wyze';
+                        else if (lowerHostname.includes('imou')) brand = 'Imou';
+                        else if (lowerHostname.includes('annke')) brand = 'Annke';
+                        else if (lowerHostname.includes('zosi')) brand = 'Zosi';
                         
                         break;
                     }

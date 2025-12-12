@@ -75,6 +75,9 @@ function loadTabData(tabId) {
         case 'cameras':
             loadCameras();
             break;
+        case 'wans':
+            loadWANsConfig();
+            break;
         case 'dhcp':
             loadDHCPLeases();
             break;
@@ -270,44 +273,70 @@ async function loadNATRules() {
         }
         
         list.innerHTML = data.rules.map(rule => `
-            <div class="rule-item ${rule.disabled === 'true' ? 'disabled' : ''}">
-                <div class="rule-info">
+            <div class="rule-item ${rule.disabled === 'true' ? 'disabled' : ''}" style="max-width: 100%;">
+                <div class="rule-info" style="flex: 1;">
                     <div class="rule-title">
                         ${rule.comment || `NAT #${rule['.id']}`}
                         <span class="badge-status badge-active">${rule.action?.toUpperCase()}</span>
+                        ${rule.chain ? `<span class="badge-chain">${rule.chain.toUpperCase()}</span>` : ''}
                     </div>
-                    <div class="rule-details">
+                    <div class="rule-details" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 13px;">
                         <div class="rule-detail-item">
                             <span class="rule-detail-label">Chain:</span>
-                            <span>${rule.chain}</span>
+                            <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="chain" value="${rule.chain || ''}" readonly>
                         </div>
                         ${rule.protocol ? `
                             <div class="rule-detail-item">
                                 <span class="rule-detail-label">Protocolo:</span>
-                                <span>${rule.protocol}</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="protocol" value="${rule.protocol}" readonly>
+                            </div>
+                        ` : ''}
+                        ${rule['in-interface'] ? `
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">Interface IN:</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="in-interface" value="${rule['in-interface']}" readonly>
+                            </div>
+                        ` : ''}
+                        ${rule['src-address'] ? `
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">IP Origen:</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="src-address" value="${rule['src-address']}" readonly>
+                            </div>
+                        ` : ''}
+                        ${rule['dst-address'] ? `
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">IP Destino:</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="dst-address" value="${rule['dst-address']}" readonly>
                             </div>
                         ` : ''}
                         ${rule['dst-port'] ? `
                             <div class="rule-detail-item">
-                                <span class="rule-detail-label">Puerto:</span>
-                                <span>${rule['dst-port']}</span>
+                                <span class="rule-detail-label">Puerto Destino:</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="dst-port" value="${rule['dst-port']}" readonly>
                             </div>
                         ` : ''}
                         ${rule['to-addresses'] ? `
                             <div class="rule-detail-item">
                                 <span class="rule-detail-label">A IP:</span>
-                                <span>${rule['to-addresses']}</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="to-addresses" value="${rule['to-addresses']}" readonly>
                             </div>
                         ` : ''}
                         ${rule['to-ports'] ? `
                             <div class="rule-detail-item">
                                 <span class="rule-detail-label">A Puerto:</span>
-                                <span>${rule['to-ports']}</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="to-ports" value="${rule['to-ports']}" readonly>
+                            </div>
+                        ` : ''}
+                        ${rule['out-interface'] ? `
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">Interface OUT:</span>
+                                <input type="text" class="nat-edit-field" data-rule-id="${rule['.id']}" data-field="out-interface" value="${rule['out-interface']}" readonly>
                             </div>
                         ` : ''}
                     </div>
                 </div>
-                <div class="rule-actions">
+                <div class="rule-actions" style="flex-direction: column; gap: 5px; min-width: 120px;">
+                    <button class="btn-rule btn-edit" onclick="editNATRule('${rule['.id']}')">✏️ Editar</button>
                     ${rule.disabled === 'true' 
                         ? `<button class="btn-rule btn-enable" onclick="toggleNATRule('${rule['.id']}', false)">Habilitar</button>`
                         : `<button class="btn-rule btn-disable" onclick="toggleNATRule('${rule['.id']}', true)">Deshabilitar</button>`
@@ -392,6 +421,58 @@ async function toggleNATRule(id, disable) {
         }
     } catch (error) {
         alert('❌ Error: ' + error.message);
+    }
+}
+
+function editNATRule(ruleId) {
+    const fields = document.querySelectorAll(`.nat-edit-field[data-rule-id="${ruleId}"]`);
+    const isEditing = fields[0].hasAttribute('readonly');
+    
+    if (isEditing) {
+        // Habilitar edición
+        fields.forEach(field => {
+            field.removeAttribute('readonly');
+            field.style.background = '#fff3cd';
+            field.style.border = '2px solid #ffc107';
+        });
+        
+        const editBtn = event.target;
+        editBtn.textContent = '💾 Guardar';
+        editBtn.classList.add('btn-save');
+    } else {
+        // Guardar cambios
+        const changes = {};
+        fields.forEach(field => {
+            const fieldName = field.getAttribute('data-field');
+            changes[fieldName] = field.value;
+        });
+        
+        saveNATChanges(ruleId, changes);
+    }
+}
+
+async function saveNATChanges(ruleId, changes) {
+    try {
+        const params = Object.entries(changes)
+            .filter(([key, value]) => value)
+            .map(([key, value]) => `=${key}=${value}`);
+        
+        const response = await fetch('/api/admin/nat/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: ruleId, changes })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Regla NAT actualizada');
+            loadNATRules();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error actualizando regla: ' + error.message);
     }
 }
 
@@ -659,6 +740,123 @@ function openCameraWeb(ip) {
 async function pingCamera(ip) {
     alert(`📡 Ping a ${ip}...\n\n(Esta función requiere herramientas adicionales del sistema)`);
     // En futuras versiones se puede implementar con el MikroTik
+}
+
+function showAddManualCamera() {
+    document.getElementById('modal-camera-manual').classList.add('active');
+}
+
+document.getElementById('form-camera-manual')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {};
+    
+    formData.forEach((value, key) => {
+        if (value) data[key] = value;
+    });
+    
+    try {
+        const response = await fetch('/api/cameras/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Cámara agregada manualmente');
+            closeModal('modal-camera-manual');
+            loadCameras();
+            e.target.reset();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error agregando cámara: ' + error.message);
+    }
+});
+
+// ==================== WANs FAILOVER ==================== //
+
+async function loadWANsConfig() {
+    try {
+        // Cargar estado de WANs
+        const wansResponse = await fetch('/api/wans');
+        const wansData = await wansResponse.json();
+        
+        const statusList = document.getElementById('wans-status-list');
+        
+        if (wansData.wans && wansData.wans.length > 0) {
+            statusList.innerHTML = wansData.wans.map(wan => `
+                <div class="wan-status-card ${wan.status === 'UP' ? 'wan-up' : 'wan-down'}">
+                    <div class="wan-status-header">
+                        <h4>${wan.name}</h4>
+                        <span class="wan-badge ${wan.status === 'UP' ? 'badge-active' : 'badge-static'}">
+                            ${wan.status === 'UP' ? '🟢 ACTIVA' : '🔴 CAÍDA'}
+                        </span>
+                    </div>
+                    <div class="wan-status-details">
+                        ${wan.uptimePercentage !== undefined ? `
+                            <div class="wan-detail-item">
+                                <span>Uptime:</span>
+                                <strong>${wan.uptimePercentage.toFixed(1)}%</strong>
+                            </div>
+                        ` : ''}
+                        ${wan.totalFailures !== undefined ? `
+                            <div class="wan-detail-item">
+                                <span>Fallos Totales:</span>
+                                <strong>${wan.totalFailures}</strong>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            statusList.innerHTML = '<div class="loading">No se detectaron WANs</div>';
+        }
+        
+        // Cargar rutas por defecto
+        const routesResponse = await fetch('/api/admin/routes');
+        const routesData = await routesResponse.json();
+        
+        const routesList = document.getElementById('wan-routes-list');
+        
+        if (routesData.success && routesData.routes && routesData.routes.length > 0) {
+            // Filtrar solo rutas por defecto (0.0.0.0/0)
+            const defaultRoutes = routesData.routes.filter(r => 
+                r['dst-address'] === '0.0.0.0/0' || r['dst-address'] === '0.0.0.0'
+            );
+            
+            if (defaultRoutes.length > 0) {
+                routesList.innerHTML = defaultRoutes.map(route => `
+                    <div class="route-item ${route.disabled === 'true' ? 'disabled' : ''}">
+                        <div class="route-info">
+                            <div class="route-gateway">
+                                <strong>Gateway:</strong> ${route.gateway || 'N/A'}
+                            </div>
+                            <div class="route-details">
+                                <span>Distancia: <strong>${route.distance || '1'}</strong></span>
+                                <span>Check Gateway: <strong>${route['check-gateway'] || 'N/A'}</strong></span>
+                                ${route['routing-mark'] ? `<span>Routing Mark: <strong>${route['routing-mark']}</strong></span>` : ''}
+                            </div>
+                        </div>
+                        <div class="route-status">
+                            ${route.disabled === 'true' ? '⚠️ Deshabilitada' : route.active === 'true' ? '✅ Activa' : '⏸️ Inactiva'}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                routesList.innerHTML = '<div class="loading">No hay rutas por defecto configuradas</div>';
+            }
+        } else {
+            routesList.innerHTML = '<div class="loading">No se pudieron cargar las rutas</div>';
+        }
+        
+    } catch (error) {
+        console.error('Error cargando configuración de WANs:', error);
+    }
 }
 
 // ==================== DHCP ==================== //
