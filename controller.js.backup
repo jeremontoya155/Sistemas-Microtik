@@ -1,0 +1,565 @@
+/**
+ * MikroTik Controller - Lógica de Negocio
+ * Maneja toda la comunicación con el router MikroTik
+ */
+
+const RouterOSAPI = require('node-routeros').RouterOSAPI;
+
+class MikroTikController {
+    constructor(io) {
+        this.io = io;
+        
+        // Configuración de conexión
+        this.config = {
+            host: process.env.MIKROTIK_HOST,
+            user: process.env.MIKROTIK_USER,
+            password: process.env.MIKROTIK_PASSWORD,
+            port: process.env.MIKROTIK_PORT || 8728,
+            timeout: 10
+        };
+        
+        this.conn = null;
+        this.isConnected = false;
+        this.monitoring = false;
+        this.connectionTime = null;
+        
+        // Datos en memoria
+        this.data = {
+            traffic: { time: [], rx: [], tx: [] },
+            resources: { cpu: [], memory: [] },
+            system: {},
+            interfaces: [],
+            devices: [],
+            logs: [],
+            wans: {},
+            security: { events: [], attacks: 0, blocked: 0 },
+            priorityDevices: {},
+            topConsumers: []
+        };
+        
+        // Estadísticas
+        this.stats = {
+            peakRx: 0,
+            peakTx: 0,
+            totalErrors: 0,
+            totalDrops: 0
+        };
+        
+        // Intervalos de actualización
+        this.intervals = {};
+    }
+    
+    // ==================== CONEXIÓN ====================
+    
+    async connect() {
+        try {
+            console.log('🔌 Conectando a MikroTik...');
+            
+            this.conn = new RouterOSAPI({
+                host: this.config.host,
+                user: this.config.user,
+                password: this.config.password,
+                port: this.config.port,
+                timeout: this.config.timeout
+            });
+            
+            await this.conn.connect();
+            
+            // Obtener identidad del router
+            const identity = await this.conn.write('/system/identity/print');
+            
+            this.isConnected = true;
+            this.connectionTime = new Date();
+            
+            console.log(`✅ Conectado a: ${identity[0].name}`);
+            
+            // Iniciar monitoreo
+            this.startMonitoring();
+            
+            return {
+                success: true,
+                message: `Conectado a ${identity[0].name}`,
+                timestamp: this.connectionTime
+            };
+            
+        } catch (error) {
+            console.error('❌ Error conectando:', error.message);
+            this.isConnected = false;
+            
+            return {
+                success: false,
+                message: `Error: ${error.message}`
+            };
+        }
+    }
+    
+    disconnect() {
+        console.log('🔌 Desconectando...');
+        
+        this.stopMonitoring();
+        
+        if (this.conn) {
+            this.conn.close();
+            this.conn = null;
+        }
+        
+        this.isConnected = false;
+        this.connectionTime = null;
+        
+        console.log('✅ Desconectado');
+    }
+    
+    // ==================== MONITOREO ====================
+    
+    startMonitoring() {
+        if (this.monitoring) return;
+        
+        console.log('📊 Iniciando monitoreo...');
+        this.monitoring = true;
+        
+        // Cargar datos iniciales
+        this.loadInitialData();
+        
+        // Actualizar datos periódicamente
+        this.intervals.traffic = setInterval(() => this.updateTraffic(), 1000);
+        this.intervals.resources = setInterval(() => this.updateResources(), 2000);
+        this.intervals.system = setInterval(() => this.updateSystem(), 10000);
+        this.intervals.interfaces = setInterval(() => this.updateInterfaces(), 10000);
+        this.intervals.devices = setInterval(() => this.updateDevices(), 15000);
+        this.intervals.logs = setInterval(() => this.updateLogs(), 5000);
+        this.intervals.wans = setInterval(() => this.updateWANs(), 10000);
+        this.intervals.security = setInterval(() => this.updateSecurity(), 10000);
+    }
+    
+    stopMonitoring() {
+        console.log('⏹️  Deteniendo monitoreo...');
+        this.monitoring = false;
+        
+        // Limpiar intervalos
+        Object.keys(this.intervals).forEach(key => {
+            if (this.intervals[key]) {
+                clearInterval(this.intervals[key]);
+                this.intervals[key] = null;
+            }
+        });
+    }
+    
+    async loadInitialData() {
+        console.log('📥 Cargando datos iniciales...');
+        
+        try {
+            await Promise.all([
+                this.updateSystem(),
+                this.updateInterfaces(),
+                this.updateDevices(),
+                this.updateLogs(),
+                this.updateWANs()
+            ]);
+            
+            console.log('✅ Datos iniciales cargados');
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error.message);
+        }
+    }
+    
+    // ==================== ACTUALIZACIÓN DE DATOS ====================
+    
+    async updateTraffic() {
+        if (!this.isConnected) return;
+        
+        try {
+            const interfaces = await this.conn.write('/interface/print', [
+                '=stats='
+            ]);
+            
+            let totalRx = 0, totalTx = 0;
+            let totalRxPackets = 0, totalTxPackets = 0;
+            let totalErrors = 0, totalDrops = 0;
+            
+            interfaces.forEach(iface => {
+                if (iface.running === 'true') {
+                    totalRx += parseInt(iface['rx-byte'] || 0);
+                    totalTx += parseInt(iface['tx-byte'] || 0);
+                    totalRxPackets += parseInt(iface['rx-packet'] || 0);
+                    totalTxPackets += parseInt(iface['tx-packet'] || 0);
+                    totalErrors += parseInt(iface['rx-error'] || 0) + parseInt(iface['tx-error'] || 0);
+                    totalDrops += parseInt(iface['rx-drop'] || 0) + parseInt(iface['tx-drop'] || 0);
+                }
+            });
+            
+            // Calcular velocidad (solo si hay datos previos)
+            if (this.data.traffic.time.length > 0) {
+                const prevRx = this.data.traffic.rx[this.data.traffic.rx.length - 1] || 0;
+                const prevTx = this.data.traffic.tx[this.data.traffic.tx.length - 1] || 0;
+                
+                const rxSpeed = ((totalRx - prevRx) * 8) / 1000000; // Mbps
+                const txSpeed = ((totalTx - prevTx) * 8) / 1000000; // Mbps
+                
+                // Actualizar picos
+                if (rxSpeed > this.stats.peakRx) this.stats.peakRx = rxSpeed;
+                if (txSpeed > this.stats.peakTx) this.stats.peakTx = txSpeed;
+                
+                // Emitir datos
+                this.io.emit('traffic_update', {
+                    time: Date.now(),
+                    rx: Math.max(0, rxSpeed).toFixed(2),
+                    tx: Math.max(0, txSpeed).toFixed(2),
+                    peakRx: this.stats.peakRx.toFixed(2),
+                    peakTx: this.stats.peakTx.toFixed(2),
+                    totalRx: this.formatBytes(totalRx),
+                    totalTx: this.formatBytes(totalTx),
+                    packetsRx: totalRxPackets,
+                    packetsTx: totalTxPackets,
+                    errors: totalErrors,
+                    drops: totalDrops
+                });
+            }
+            
+            // Guardar en historial (máximo 100 puntos)
+            this.data.traffic.time.push(Date.now());
+            this.data.traffic.rx.push(totalRx);
+            this.data.traffic.tx.push(totalTx);
+            
+            if (this.data.traffic.time.length > 100) {
+                this.data.traffic.time.shift();
+                this.data.traffic.rx.shift();
+                this.data.traffic.tx.shift();
+            }
+            
+            this.stats.totalErrors = totalErrors;
+            this.stats.totalDrops = totalDrops;
+            
+        } catch (error) {
+            console.error('Error actualizando tráfico:', error.message);
+        }
+    }
+    
+    async updateResources() {
+        if (!this.isConnected) return;
+        
+        try {
+            const resources = await this.conn.write('/system/resource/print');
+            const resource = resources[0];
+            
+            const cpuLoad = parseInt(resource['cpu-load'] || 0);
+            const freeMemory = parseInt(resource['free-memory'] || 0);
+            const totalMemory = parseInt(resource['total-memory'] || 1);
+            
+            const memoryUsed = totalMemory - freeMemory;
+            const memoryPercent = ((memoryUsed / totalMemory) * 100).toFixed(1);
+            
+            // Guardar en historial
+            this.data.resources.cpu.push(cpuLoad);
+            this.data.resources.memory.push(parseFloat(memoryPercent));
+            
+            if (this.data.resources.cpu.length > 100) {
+                this.data.resources.cpu.shift();
+                this.data.resources.memory.shift();
+            }
+            
+            // Emitir datos
+            this.io.emit('resources_update', {
+                cpu: cpuLoad,
+                memory: memoryPercent,
+                memoryTotal: this.formatBytes(totalMemory),
+                memoryFree: this.formatBytes(freeMemory),
+                memoryUsed: this.formatBytes(memoryUsed),
+                uptime: resource.uptime || 'N/A',
+                cpuHistory: this.data.resources.cpu.slice(-20), // Últimos 20 valores
+                memoryHistory: this.data.resources.memory.slice(-20)
+            });
+            
+        } catch (error) {
+            console.error('Error actualizando recursos:', error.message);
+        }
+    }
+    
+    async updateSystem() {
+        if (!this.isConnected) return;
+        
+        try {
+            const [identity, resources, routerboard] = await Promise.all([
+                this.conn.write('/system/identity/print'),
+                this.conn.write('/system/resource/print'),
+                this.conn.write('/system/routerboard/print').catch(() => [{}])
+            ]);
+            
+            this.data.system = {
+                identity: identity[0].name || 'N/A',
+                board: resources[0]['board-name'] || 'N/A',
+                version: resources[0].version || 'N/A',
+                architecture: resources[0]['architecture-name'] || 'N/A',
+                serial: routerboard[0] ? routerboard[0]['serial-number'] : 'N/A',
+                cpuCount: resources[0]['cpu-count'] || '1',
+                uptime: resources[0].uptime || 'N/A'
+            };
+            
+            this.io.emit('system_update', this.data.system);
+            
+        } catch (error) {
+            console.error('Error actualizando sistema:', error.message);
+        }
+    }
+    
+    async updateInterfaces() {
+        if (!this.isConnected) return;
+        
+        try {
+            const interfaces = await this.conn.write('/interface/print', [
+                '=stats='
+            ]);
+            
+            this.data.interfaces = interfaces.map(iface => ({
+                name: iface.name || 'N/A',
+                type: iface.type || 'N/A',
+                running: iface.running === 'true',
+                disabled: iface.disabled === 'true',
+                mac: iface['mac-address'] || 'N/A',
+                mtu: iface.mtu || 'N/A',
+                rxBytes: this.formatBytes(parseInt(iface['rx-byte'] || 0)),
+                txBytes: this.formatBytes(parseInt(iface['tx-byte'] || 0)),
+                rxPackets: parseInt(iface['rx-packet'] || 0),
+                txPackets: parseInt(iface['tx-packet'] || 0),
+                rxErrors: parseInt(iface['rx-error'] || 0),
+                txErrors: parseInt(iface['tx-error'] || 0),
+                rxDrops: parseInt(iface['rx-drop'] || 0),
+                txDrops: parseInt(iface['tx-drop'] || 0)
+            }));
+            
+            this.io.emit('interfaces_update', {
+                interfaces: this.data.interfaces,
+                total: this.data.interfaces.length,
+                active: this.data.interfaces.filter(i => i.running).length,
+                disabled: this.data.interfaces.filter(i => i.disabled).length
+            });
+            
+        } catch (error) {
+            console.error('Error actualizando interfaces:', error.message);
+        }
+    }
+    
+    async updateDevices() {
+        if (!this.isConnected) return;
+        
+        try {
+            const leases = await this.conn.write('/ip/dhcp-server/lease/print');
+            
+            this.data.devices = leases
+                .filter(lease => {
+                    const status = lease.status || '';
+                    return status.includes('bound') || status === 'waiting';
+                })
+                .map(lease => ({
+                    address: lease.address || lease['active-address'] || 'N/A',
+                    mac: lease['mac-address'] || lease['active-mac-address'] || 'N/A',
+                    hostname: lease['host-name'] || lease.comment || 'Desconocido',
+                    status: lease.status || 'bound',
+                    expires: lease['expires-after'] || 'Estático',
+                    server: lease.server || 'N/A',
+                    active: (lease.status || '').includes('bound')
+                }));
+            
+            this.io.emit('devices_update', {
+                devices: this.data.devices,
+                total: this.data.devices.length,
+                active: this.data.devices.filter(d => d.active).length
+            });
+            
+        } catch (error) {
+            console.error('Error actualizando dispositivos:', error.message);
+        }
+    }
+    
+    async updateLogs() {
+        if (!this.isConnected) return;
+        
+        try {
+            const logs = await this.conn.write('/log/print');
+            
+            // Tomar últimos 30 logs
+            const recentLogs = logs.slice(-30).reverse();
+            
+            this.data.logs = recentLogs.map(log => ({
+                time: log.time || '',
+                topics: log.topics || 'info',
+                message: log.message || 'Sin mensaje'
+            }));
+            
+            this.io.emit('logs_update', {
+                logs: this.data.logs
+            });
+            
+        } catch (error) {
+            console.error('Error actualizando logs:', error.message);
+        }
+    }
+    
+    async updateWANs() {
+        if (!this.isConnected) return;
+        
+        try {
+            const interfaces = await this.conn.write('/interface/print');
+            
+            const wanKeywords = ['wan', 'ether1', 'pppoe', 'lte', 'sfp'];
+            const wans = [];
+            
+            interfaces.forEach(iface => {
+                const name = iface.name || '';
+                const isWan = wanKeywords.some(keyword => name.toLowerCase().includes(keyword));
+                
+                if (isWan) {
+                    const running = iface.running === 'true';
+                    const disabled = iface.disabled !== 'true';
+                    const status = running && disabled;
+                    
+                    // Inicializar WAN si no existe
+                    if (!this.data.wans[name]) {
+                        this.data.wans[name] = {
+                            status: status,
+                            lastCheck: new Date(),
+                            downtime: 0,
+                            uptimePercentage: 100,
+                            totalFailures: 0,
+                            lastFailure: null
+                        };
+                    } else {
+                        // Detectar cambio de estado
+                        const prevStatus = this.data.wans[name].status;
+                        
+                        if (prevStatus !== status) {
+                            if (!status) {
+                                // WAN cayó
+                                this.data.wans[name].totalFailures++;
+                                this.data.wans[name].lastFailure = new Date();
+                                
+                                // Emitir alerta de WAN caída
+                                this.io.emit('wan_down_alert', {
+                                    name: name,
+                                    timestamp: new Date()
+                                });
+                                
+                                console.log(`🚨 ALERTA: WAN ${name} ha caído!`);
+                            } else {
+                                console.log(`✅ WAN ${name} recuperada`);
+                            }
+                        }
+                        
+                        this.data.wans[name].status = status;
+                        this.data.wans[name].lastCheck = new Date();
+                    }
+                    
+                    wans.push({
+                        name: name,
+                        status: status ? 'UP' : 'DOWN',
+                        uptimePercentage: this.data.wans[name].uptimePercentage,
+                        totalFailures: this.data.wans[name].totalFailures,
+                        lastFailure: this.data.wans[name].lastFailure
+                    });
+                }
+            });
+            
+            this.io.emit('wan_update', {
+                wans: wans,
+                total: wans.length,
+                up: wans.filter(w => w.status === 'UP').length,
+                down: wans.filter(w => w.status === 'DOWN').length
+            });
+            
+        } catch (error) {
+            console.error('Error actualizando WANs:', error.message);
+        }
+    }
+    
+    async updateSecurity() {
+        if (!this.isConnected) return;
+        
+        try {
+            // Analizar logs para eventos de seguridad
+            let attackCount = 0;
+            let blockedCount = 0;
+            const events = [];
+            
+            this.data.logs.forEach(log => {
+                const message = log.message.toLowerCase();
+                const topics = log.topics.toLowerCase();
+                
+                // Detectar ataques/intentos fallidos
+                if (message.includes('failed') || message.includes('incorrect')) {
+                    attackCount++;
+                    events.push({
+                        time: log.time,
+                        type: 'failed_login',
+                        severity: 'high',
+                        message: log.message
+                    });
+                }
+                
+                // Detectar bloqueos de firewall
+                if (topics.includes('firewall') || message.includes('drop') || message.includes('block')) {
+                    blockedCount++;
+                    events.push({
+                        time: log.time,
+                        type: 'firewall_block',
+                        severity: 'medium',
+                        message: log.message
+                    });
+                }
+            });
+            
+            this.data.security = {
+                events: events.slice(-20), // Últimos 20 eventos
+                attacks: attackCount,
+                blocked: blockedCount
+            };
+            
+            // Si hay muchos ataques, emitir alerta
+            if (attackCount > 5) {
+                this.io.emit('security_alert', {
+                    type: 'multiple_attacks',
+                    count: attackCount,
+                    timestamp: new Date()
+                });
+            }
+            
+            this.io.emit('security_update', this.data.security);
+            
+        } catch (error) {
+            console.error('Error actualizando seguridad:', error.message);
+        }
+    }
+    
+    // ==================== MÉTODOS DE UTILIDAD ====================
+    
+    formatBytes(bytes) {
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let size = bytes;
+        let unitIndex = 0;
+        
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+        
+        return `${size.toFixed(2)} ${units[unitIndex]}`;
+    }
+    
+    // ==================== GETTERS ====================
+    
+    getStatus() {
+        return {
+            connected: this.isConnected,
+            monitoring: this.monitoring,
+            connectionTime: this.connectionTime
+        };
+    }
+    
+    getData() {
+        return {
+            ...this.data,
+            stats: this.stats,
+            status: this.getStatus()
+        };
+    }
+}
+
+module.exports = MikroTikController;

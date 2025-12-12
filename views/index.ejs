@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>🚀 <%= title %></h1>
+            <p id="clock">Cargando...</p>
+        </div>
+        <div class="header-right">
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="connection-status">Desconectado</span>
+            </div>
+            <button class="btn btn-connect" id="btn-connect">
+                🔌 Conectar
+            </button>
+        </div>
+    </header>
+
+    <!-- Container Principal -->
+    <div class="container">
+        <!-- Grid Superior (4 cards) -->
+        <div class="grid-top">
+            <!-- Estado WANs -->
+            <div class="card card-wans">
+                <div class="card-header">
+                    <h3>📡 ESTADO WANs</h3>
+                    <span class="badge" id="wans-count">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="wans-grid" class="wans-grid">
+                        <div class="loading">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recursos -->
+            <div class="card card-resources">
+                <div class="card-header">
+                    <h3>⚡ RECURSOS</h3>
+                </div>
+                <div class="card-body">
+                    <div class="resource-item">
+                        <div class="resource-label">CPU</div>
+                        <div class="resource-bar">
+                            <div class="resource-fill" id="cpu-bar" style="width: 0%"></div>
+                            <span class="resource-value" id="cpu-value">0%</span>
+                        </div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-label">Memoria</div>
+                        <div class="resource-bar">
+                            <div class="resource-fill" id="memory-bar" style="width: 0%"></div>
+                            <span class="resource-value" id="memory-value">0%</span>
+                        </div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-label">Disco</div>
+                        <div class="resource-bar">
+                            <div class="resource-fill" id="disk-bar" style="width: 0%"></div>
+                            <span class="resource-value" id="disk-value">0%</span>
+                        </div>
+                    </div>
+                    <div class="resource-mini-chart">
+                        <canvas id="cpu-mini-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interfaces -->
+            <div class="card card-interfaces">
+                <div class="card-header">
+                    <h3>🔌 INTERFACES</h3>
+                    <span class="badge" id="interfaces-count">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="interfaces-list" class="interfaces-list">
+                        <div class="loading">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equipos -->
+            <div class="card card-devices">
+                <div class="card-header">
+                    <h3>💻 EQUIPOS</h3>
+                    <span class="badge badge-success" id="devices-count">0</span>
+                </div>
+                <div class="card-body">
+                    <div class="devices-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="devices-total">0</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value stat-success" id="devices-active">0</div>
+                            <div class="stat-label">Activos</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Medio (Gráfico + Logs) -->
+        <div class="grid-middle">
+            <!-- Gráfico de Tráfico -->
+            <div class="card card-traffic">
+                <div class="card-header">
+                    <h3>📊 RENDIMIENTO EN TIEMPO REAL (RX/TX)</h3>
+                    <div class="traffic-stats">
+                        <span class="stat-rx">↓ <span id="rx-value">0.00 Mbps</span></span>
+                        <span class="stat-tx">↑ <span id="tx-value">0.00 Mbps</span></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="traffic-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Logs Recientes -->
+            <div class="card card-logs">
+                <div class="card-header">
+                    <h3>📋 LOGS RECIENTES</h3>
+                </div>
+                <div class="card-body">
+                    <div id="logs-list" class="logs-list">
+                        <div class="loading">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Inferior (Dispositivos con control) -->
+        <div class="grid-bottom">
+            <div class="card card-devices-control">
+                <div class="card-header">
+                    <h3>🖥️ CONTROL DE DISPOSITIVOS</h3>
+                    <span class="badge" id="devices-control-count">0</span>
+                </div>
+                <div class="card-body">
+                    <div id="devices-control-list" class="devices-control-list">
+                        <div class="loading">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio para alertas -->
+    <audio id="alert-audio" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE" type="audio/wav">
+    </audio>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

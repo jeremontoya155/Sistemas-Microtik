@@ -1,0 +1,592 @@
+/* ==================== RESET Y VARIABLES ==================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #1a1d29;
+    --bg-secondary: #24273a;
+    --bg-tertiary: #2d3142;
+    --text-primary: #e4e7eb;
+    --text-secondary: #9ca3af;
+    --accent: #5b9bd5;
+    --success: #4caf50;
+    --warning: #ff9800;
+    --danger: #f44336;
+    --border: #373b50;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ==================== HEADER ==================== */
+
+.header {
+    background: var(--bg-secondary);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.header-left h1 {
+    font-size: 20px;
+    margin-bottom: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 10px rgba(91, 155, 213, 0.3);
+}
+
+.header-left p {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--danger);
+    animation: pulse 2s infinite;
+}
+
+.status-dot.connected {
+    background: var(--success);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ==================== BOTONES ==================== */
+
+.btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-connect {
+    background: var(--success);
+    color: white;
+}
+
+.btn-connect:hover {
+    background: #388e3c;
+    transform: translateY(-1px);
+}
+
+.btn-connect.connected {
+    background: var(--danger);
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+/* ==================== CONTAINER ==================== */
+
+.container {
+    padding: 10px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: calc(100vh - 70px);
+}
+
+/* ==================== CARDS ==================== */
+
+.card {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.card-header {
+    background: var(--bg-tertiary);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.card-body {
+    padding: 10px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* ==================== GRIDS ==================== */
+
+.grid-top {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    height: 180px;
+}
+
+.grid-middle {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 10px;
+    height: calc(100vh - 480px);
+    min-height: 300px;
+}
+
+.grid-bottom {
+    height: 200px;
+}
+
+/* ==================== BADGES ==================== */
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.badge-success {
+    background: var(--success);
+}
+
+.badge-warning {
+    background: var(--warning);
+}
+
+.badge-danger {
+    background: var(--danger);
+}
+
+/* ==================== WANS ==================== */
+
+.wans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+}
+
+.wan-item {
+    background: var(--bg-tertiary);
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.wan-item.up {
+    border-color: var(--success);
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.wan-item.down {
+    border-color: var(--danger);
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+    animation: shake 0.5s infinite;
+}
+
+.wan-name {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.wan-status {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.wan-status.up {
+    background: var(--success);
+    color: white;
+}
+
+.wan-status.down {
+    background: var(--danger);
+    color: white;
+}
+
+.wan-uptime {
+    font-size: 9px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
+/* ==================== RECURSOS ==================== */
+
+.resource-item {
+    margin-bottom: 12px;
+}
+
+.resource-label {
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-secondary);
+}
+
+.resource-bar {
+    position: relative;
+    background: var(--bg-primary);
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.resource-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    transition: width 0.5s ease;
+    border-radius: 10px;
+}
+
+.resource-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.resource-mini-chart {
+    margin-top: 10px;
+    height: 50px;
+}
+
+/* ==================== INTERFACES ==================== */
+
+.interfaces-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.interface-item {
+    background: var(--bg-tertiary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    border-left: 3px solid transparent;
+}
+
+.interface-item.running {
+    border-left-color: var(--success);
+}
+
+.interface-item.disabled {
+    border-left-color: var(--danger);
+    opacity: 0.6;
+}
+
+.interface-name {
+    font-weight: 600;
+}
+
+.interface-status {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+}
+
+.interface-status.running {
+    background: var(--success);
+    color: white;
+}
+
+.interface-status.disabled {
+    background: var(--danger);
+    color: white;
+}
+
+/* ==================== DEVICES ==================== */
+
+.devices-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    text-align: center;
+}
+
+.stat-item {
+    background: var(--bg-tertiary);
+    padding: 15px;
+    border-radius: 6px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.stat-value.stat-success {
+    color: var(--success);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* ==================== TRÁFICO ==================== */
+
+.traffic-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.stat-rx {
+    color: var(--success);
+}
+
+.stat-tx {
+    color: var(--danger);
+}
+
+/* ==================== LOGS ==================== */
+
+.logs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.log-entry {
+    background: var(--bg-tertiary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    border-left: 2px solid var(--accent);
+}
+
+.log-time {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.log-message {
+    color: var(--text-secondary);
+}
+
+.log-entry.error {
+    border-left-color: var(--danger);
+}
+
+.log-entry.warning {
+    border-left-color: var(--warning);
+}
+
+/* ==================== CONTROL DE DISPOSITIVOS ==================== */
+
+.devices-control-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 8px;
+}
+
+.device-control-item {
+    background: var(--bg-tertiary);
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-left: 3px solid var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+}
+
+.device-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.device-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.device-ip {
+    font-size: 9px;
+    color: var(--text-secondary);
+}
+
+.device-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-device {
+    padding: 4px 10px;
+    font-size: 9px;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-disconnect {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-disconnect:hover {
+    background: #d32f2f;
+}
+
+/* ==================== LOADING ==================== */
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* ==================== ERROR PAGE ==================== */
+
+.error-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.error-container {
+    text-align: center;
+    padding: 40px;
+}
+
+.error-container h1 {
+    font-size: 120px;
+    color: var(--accent);
+    margin-bottom: 20px;
+}
+
+.error-container h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.error-container p {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 1400px) {
+    .grid-top {
+        grid-template-columns: repeat(2, 1fr);
+        height: auto;
+    }
+    
+    .grid-middle {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .grid-top {
+        grid-template-columns: 1fr;
+    }
+    
+    .devices-control-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==================== SCROLLBAR ==================== */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--success);
+}
