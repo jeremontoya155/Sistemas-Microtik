@@ -128,6 +128,18 @@ module.exports = (app, controller) => {
     });
     
     /**
+     * GET /api/cameras - Cámaras detectadas
+     */
+    app.get('/api/cameras', (req, res) => {
+        const camerasData = controller.getCameras();
+        res.json({
+            success: true,
+            cameras: camerasData.cameras,
+            total: camerasData.cameras.length
+        });
+    });
+    
+    /**
      * GET /api/logs - Logs del sistema
      */
     app.get('/api/logs', (req, res) => {

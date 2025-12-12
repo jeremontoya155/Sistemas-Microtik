@@ -471,3 +471,170 @@
     color: var(--text-secondary);
     font-size: 12px;
 }
+
+/* ==================== CÁMARAS ==================== */
+
+.cameras-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.cameras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.camera-card {
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.camera-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.camera-online {
+    border-color: #4CAF50;
+}
+
+.camera-offline {
+    border-color: #f44336;
+    opacity: 0.7;
+}
+
+.camera-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.camera-brand {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.camera-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.camera-body {
+    padding: 15px;
+}
+
+.camera-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.camera-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.camera-detail {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+}
+
+.camera-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.camera-value {
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.badge-detection {
+    display: inline-block;
+    background: rgba(91, 155, 213, 0.2);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.camera-footer {
+    padding: 15px;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 10px;
+}
+
+.btn-camera {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-view {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-view:hover {
+    background: #45a049;
+}
+
+.btn-ping {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-ping:hover {
+    background: #6b9bd6;
+}
+
+.btn-disabled {
+    background: #666;
+    color: #999;
+    cursor: not-allowed;
+}

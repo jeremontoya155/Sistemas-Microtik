@@ -34,6 +34,7 @@
             <button class="tab-btn active" data-tab="firewall">🔥 Firewall</button>
             <button class="tab-btn" data-tab="nat">🔄 NAT</button>
             <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
+            <button class="tab-btn" data-tab="cameras">📹 Cámaras</button>
             <button class="tab-btn" data-tab="dhcp">🌐 DHCP</button>
             <button class="tab-btn" data-tab="routes">🗺️ Rutas</button>
             <button class="tab-btn" data-tab="users">👥 Usuarios</button>
@@ -256,6 +257,39 @@
                                 <button type="button" class="btn btn-secondary" onclick="closeModal('modal-queue')">Cancelar</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Cámaras -->
+        <div class="tab-content" id="tab-cameras">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>📹 Cámaras IP Detectadas</h2>
+                    <button class="btn btn-primary" onclick="loadCameras()">
+                        🔄 Actualizar
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <div class="cameras-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="cameras-total">0</div>
+                            <div class="stat-label">Total Cámaras</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="cameras-online">0</div>
+                            <div class="stat-label">En Línea</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="cameras-offline">0</div>
+                            <div class="stat-label">Desconectadas</div>
+                        </div>
+                    </div>
+                    
+                    <div id="cameras-list" class="cameras-grid">
+                        <div class="loading">Cargando cámaras...</div>
                     </div>
                 </div>
             </div>

@@ -48,6 +48,45 @@ class MikroTikController {
         this.attackCount = 0;
         this.blockedAttacks = 0;
         
+        // Cámaras detectadas
+        this.cameras = [];
+        
+        // Base de datos de vendors de cámaras (primeros 6 dígitos del MAC)
+        this.cameraVendors = {
+            // Hikvision
+            '00:12:12': 'Hikvision',
+            '44:19:B6': 'Hikvision',
+            'BC:AD:28': 'Hikvision',
+            '28:57:BE': 'Hikvision',
+            'C0:56:E3': 'Hikvision',
+            // Dahua
+            '00:12:41': 'Dahua',
+            '08:57:00': 'Dahua',
+            'C4:2F:90': 'Dahua',
+            '68:DF:DD': 'Dahua',
+            // Axis
+            '00:40:8C': 'Axis',
+            'AC:CC:8E': 'Axis',
+            'B8:A4:4F': 'Axis',
+            // TP-Link (Tapo, etc)
+            '50:C7:BF': 'TP-Link',
+            'A4:2B:B0': 'TP-Link',
+            '1C:3B:F3': 'TP-Link',
+            // Uniview
+            '00:12:16': 'Uniview',
+            // Vivotek
+            '00:02:D1': 'Vivotek',
+            // Foscam
+            '00:1F:AF': 'Foscam',
+            // Xiaomi/Yi
+            '34:CE:00': 'Xiaomi',
+            '78:11:DC': 'Xiaomi',
+            // Wyze
+            '2C:AA:8E': 'Wyze',
+            // Reolink
+            'EC:71:DB': 'Reolink'
+        };
+        
         // Contadores para tráfico
         this.prevRx = 0;
         this.prevTx = 0;
@@ -447,6 +486,9 @@ class MikroTikController {
         // WANs cada 10 segundos
         this.intervals.wans = setInterval(() => this.loadWANs(), 10000);
         
+        // Cámaras cada 20 segundos
+        this.intervals.cameras = setInterval(() => this.loadCameras(), 20000);
+        
         console.log('✅ Monitoreo iniciado');
     }
     
@@ -633,6 +675,96 @@ class MikroTikController {
             wans: wanData,
             changes: this.wanChanges
         };
+    }
+    
+    // ==================== DETECCIÓN DE CÁMARAS ====================
+    
+    async loadCameras() {
+        if (!this.isConnected) return;
+        
+        try {
+            // Obtener todos los dispositivos DHCP
+            const leases = await this.connection.write('/ip/dhcp-server/lease/print');
+            const arpList = await this.connection.write('/ip/arp/print');
+            
+            const cameras = [];
+            
+            for (const device of leases) {
+                const mac = device['mac-address'] || device['active-mac-address'] || '';
+                const ip = device['active-address'] || device.address || '';
+                const hostname = device['host-name'] || device.comment || device.server || '';
+                
+                // Verificar si es una cámara
+                let isCamera = false;
+                let brand = 'Desconocida';
+                let detectionMethod = '';
+                
+                // 1. Detectar por MAC vendor
+                const macPrefix = mac.substring(0, 8).toUpperCase();
+                if (this.cameraVendors[macPrefix]) {
+                    isCamera = true;
+                    brand = this.cameraVendors[macPrefix];
+                    detectionMethod = 'MAC Vendor';
+                }
+                
+                // 2. Detectar por hostname
+                const lowerHostname = hostname.toLowerCase();
+                const cameraKeywords = [
+                    'camera', 'cam', 'ipcam', 'ip-cam', 'cctv',
+                    'hikvision', 'dahua', 'axis', 'vivotek', 'foscam',
+                    'nvr', 'dvr', 'surveillance', 'vigilancia'
+                ];
+                
+                for (const keyword of cameraKeywords) {
+                    if (lowerHostname.includes(keyword)) {
+                        isCamera = true;
+                        if (!detectionMethod) detectionMethod = 'Hostname';
+                        
+                        // Intentar extraer marca del hostname
+                        if (lowerHostname.includes('hikvision')) brand = 'Hikvision';
+                        else if (lowerHostname.includes('dahua')) brand = 'Dahua';
+                        else if (lowerHostname.includes('axis')) brand = 'Axis';
+                        else if (lowerHostname.includes('tp-link') || lowerHostname.includes('tapo')) brand = 'TP-Link';
+                        else if (lowerHostname.includes('xiaomi') || lowerHostname.includes('yi')) brand = 'Xiaomi';
+                        else if (lowerHostname.includes('reolink')) brand = 'Reolink';
+                        
+                        break;
+                    }
+                }
+                
+                if (isCamera) {
+                    // Obtener información adicional del ARP
+                    const arpEntry = arpList.find(a => a.address === ip);
+                    const isOnline = arpEntry ? true : (device.status === 'bound');
+                    
+                    cameras.push({
+                        id: device['.id'],
+                        ip: ip,
+                        mac: mac,
+                        hostname: hostname || 'Sin nombre',
+                        brand: brand,
+                        status: isOnline ? 'online' : 'offline',
+                        detectionMethod: detectionMethod,
+                        lastSeen: device['last-seen'] || 'N/A',
+                        static: device.dynamic === 'false' || device.dynamic === false
+                    });
+                }
+            }
+            
+            this.cameras = cameras;
+            
+            // Emitir actualización
+            this.io.emit('cameras_update', { data: cameras });
+            
+            console.log(`📹 Cámaras detectadas: ${cameras.length}`);
+            
+        } catch (error) {
+            console.error('❌ Error cargando cámaras:', error.message);
+        }
+    }
+    
+    getCameras() {
+        return { cameras: this.cameras };
     }
     
     getDashboardSummary() {

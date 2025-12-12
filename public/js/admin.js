@@ -46,6 +46,16 @@ socket.on('connection_status', (data) => {
     }
 });
 
+socket.on('cameras_update', (data) => {
+    console.log('📹 Actualización de cámaras:', data);
+    
+    // Si estamos en la pestaña de cámaras, actualizar
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab && activeTab.getAttribute('data-tab') === 'cameras') {
+        loadCameras();
+    }
+});
+
 // ==================== FUNCIONES DE CARGA ==================== //
 
 function loadTabData(tabId) {
@@ -61,6 +71,9 @@ function loadTabData(tabId) {
             break;
         case 'bandwidth':
             loadQueues();
+            break;
+        case 'cameras':
+            loadCameras();
             break;
         case 'dhcp':
             loadDHCPLeases();
@@ -535,6 +548,117 @@ async function deleteQueue(id) {
     } catch (error) {
         alert('❌ Error: ' + error.message);
     }
+}
+
+// ==================== CÁMARAS ==================== //
+
+async function loadCameras() {
+    try {
+        const response = await fetch('/api/cameras');
+        const data = await response.json();
+        
+        const list = document.getElementById('cameras-list');
+        
+        if (!data.success || !data.cameras || data.cameras.length === 0) {
+            list.innerHTML = '<div class="loading">No se detectaron cámaras en la red</div>';
+            updateCameraStats(0, 0, 0);
+            return;
+        }
+        
+        // Actualizar estadísticas
+        const online = data.cameras.filter(c => c.status === 'online').length;
+        const offline = data.cameras.length - online;
+        updateCameraStats(data.cameras.length, online, offline);
+        
+        // Generar HTML de las cámaras
+        list.innerHTML = data.cameras.map(camera => {
+            const statusClass = camera.status === 'online' ? 'camera-online' : 'camera-offline';
+            const statusIcon = camera.status === 'online' ? '🟢' : '🔴';
+            const brandIcon = getBrandIcon(camera.brand);
+            
+            return `
+                <div class="camera-card ${statusClass}">
+                    <div class="camera-header">
+                        <div class="camera-brand">${brandIcon} ${camera.brand}</div>
+                        <div class="camera-status">${statusIcon} ${camera.status.toUpperCase()}</div>
+                    </div>
+                    <div class="camera-body">
+                        <div class="camera-name">${camera.hostname}</div>
+                        <div class="camera-details">
+                            <div class="camera-detail">
+                                <span class="camera-label">IP:</span>
+                                <span class="camera-value">${camera.ip}</span>
+                            </div>
+                            <div class="camera-detail">
+                                <span class="camera-label">MAC:</span>
+                                <span class="camera-value">${camera.mac}</span>
+                            </div>
+                            ${camera.static ? '<span class="badge-static">ESTÁTICA</span>' : '<span class="badge-dynamic">DINÁMICA</span>'}
+                            <span class="badge-detection">${camera.detectionMethod}</span>
+                        </div>
+                    </div>
+                    <div class="camera-footer">
+                        ${camera.status === 'online' ? `
+                            <button class="btn-camera btn-view" onclick="openCameraWeb('${camera.ip}')">
+                                🌐 Abrir Web
+                            </button>
+                            <button class="btn-camera btn-ping" onclick="pingCamera('${camera.ip}')">
+                                📡 Ping
+                            </button>
+                        ` : `
+                            <button class="btn-camera btn-disabled" disabled>
+                                ⚠️ Desconectada
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error cargando cámaras:', error);
+        const list = document.getElementById('cameras-list');
+        list.innerHTML = '<div class="loading">Error cargando cámaras</div>';
+    }
+}
+
+function updateCameraStats(total, online, offline) {
+    document.getElementById('cameras-total').textContent = total;
+    document.getElementById('cameras-online').textContent = online;
+    document.getElementById('cameras-offline').textContent = offline;
+}
+
+function getBrandIcon(brand) {
+    const icons = {
+        'Hikvision': '📹',
+        'Dahua': '🎥',
+        'Axis': '📷',
+        'TP-Link': '📸',
+        'Xiaomi': '📹',
+        'Reolink': '🎥',
+        'Uniview': '📹',
+        'Vivotek': '📷',
+        'Foscam': '📸',
+        'Wyze': '📹',
+        'Desconocida': '❓'
+    };
+    return icons[brand] || '📹';
+}
+
+function openCameraWeb(ip) {
+    // Intentar abrir en puerto 80 por defecto
+    const url = `http://${ip}`;
+    window.open(url, '_blank');
+    
+    // Mostrar mensaje con puertos alternativos
+    setTimeout(() => {
+        alert(`🌐 Abriendo cámara en: ${url}\n\nSi no funciona, prueba:\n• http://${ip}:8000\n• http://${ip}:8080\n• https://${ip}`);
+    }, 500);
+}
+
+async function pingCamera(ip) {
+    alert(`📡 Ping a ${ip}...\n\n(Esta función requiere herramientas adicionales del sistema)`);
+    // En futuras versiones se puede implementar con el MikroTik
 }
 
 // ==================== DHCP ==================== //
