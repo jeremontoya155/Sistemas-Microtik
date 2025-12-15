@@ -262,6 +262,12 @@ body {
     text-align: center;
     border: 2px solid transparent;
     transition: all 0.3s;
+    position: relative;
+}
+
+.wan-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .wan-item.up {
@@ -273,6 +279,23 @@ body {
     border-color: var(--danger);
     box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
     animation: shake 0.5s infinite;
+}
+
+/* WAN seleccionada */
+.wan-item.selected {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.6) !important;
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(33, 150, 243, 0.05));
+}
+
+.wan-item.selected::before {
+    content: '✓';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: bold;
 }
 
 .wan-name {

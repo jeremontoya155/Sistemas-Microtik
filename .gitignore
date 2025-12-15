@@ -9,6 +9,9 @@ yarn-error.log*
 .env.local
 .env.production
 
+# Configuración local de MikroTiks
+mikrotiks.json
+
 # Logs
 logs/
 *.log

@@ -62,6 +62,9 @@ function loadTabData(tabId) {
     console.log('📥 Cargando datos de tab:', tabId);
     
     switch(tabId) {
+        case 'routers':
+            loadRouters();
+            break;
         case 'firewall':
             loadFirewallRules();
             break;
@@ -93,6 +96,161 @@ function loadTabData(tabId) {
         case 'backup':
             loadBackups();
             break;
+    }
+}
+
+// ==================== GESTIÓN DE ROUTERS ==================== //
+
+async function loadRouters() {
+    try {
+        const response = await fetch('/api/routers');
+        const data = await response.json();
+        
+        const list = document.getElementById('routers-list');
+        
+        if (!data.success || !data.routers || data.routers.length === 0) {
+            list.innerHTML = '<div class="loading">No hay routers configurados. Agrega uno para comenzar.</div>';
+            return;
+        }
+        
+        list.innerHTML = data.routers.map(router => {
+            const isActive = router.id === data.activeRouter;
+            const isDefault = router.id === data.defaultRouter;
+            
+            return `
+                <div class="rule-item ${isActive ? 'active-router' : ''}">
+                    <div class="rule-info" style="flex:1;">
+                        <div class="rule-title">
+                            ${router.name}
+                            ${isDefault ? '<span class="badge-status badge-active">⭐ POR DEFECTO</span>' : ''}
+                            ${isActive ? '<span class="badge-status badge-connected">🟢 CONECTADO</span>' : ''}
+                        </div>
+                        <div class="rule-details">
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">Host:</span>
+                                <span>${router.host}:${router.port}</span>
+                            </div>
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">Usuario:</span>
+                                <span>${router.username}</span>
+                            </div>
+                            <div class="rule-detail-item">
+                                <span class="rule-detail-label">Agregado:</span>
+                                <span>${new Date(router.createdAt).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rule-actions" style="flex-direction:column;gap:5px;">
+                        ${!isActive ? `<button class="btn-rule btn-enable" onclick="switchToRouter('${router.id}')">🔄 Conectar</button>` : ''}
+                        ${!isDefault ? `<button class="btn-rule btn-edit" onclick="setDefaultRouter('${router.id}')">⭐ Hacer Default</button>` : ''}
+                        <button class="btn-rule btn-delete" onclick="deleteRouter('${router.id}')">🗑️ Eliminar</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error cargando routers:', error);
+    }
+}
+
+function showAddRouter() {
+    document.getElementById('modal-add-router').classList.add('active');
+}
+
+document.getElementById('form-add-router')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {};
+    
+    formData.forEach((value, key) => {
+        if (value) data[key] = value;
+    });
+    
+    try {
+        const response = await fetch('/api/routers/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Router agregado correctamente');
+            closeModal('modal-add-router');
+            loadRouters();
+            e.target.reset();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error agregando router: ' + error.message);
+    }
+});
+
+async function switchToRouter(id) {
+    if (!confirm('¿Cambiar a este router? Se desconectará del actual.')) return;
+    
+    try {
+        const response = await fetch(`/api/routers/${id}/switch`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.message}`);
+            loadRouters();
+            
+            // Recargar estado de conexión
+            checkConnection();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error cambiando de router: ' + error.message);
+    }
+}
+
+async function setDefaultRouter(id) {
+    try {
+        const response = await fetch(`/api/routers/${id}/default`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + result.message);
+            loadRouters();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function deleteRouter(id) {
+    if (!confirm('¿Estás seguro de eliminar este router?')) return;
+    
+    try {
+        const response = await fetch(`/api/routers/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Router eliminado');
+            loadRouters();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
     }
 }
 
@@ -782,12 +940,11 @@ document.getElementById('form-camera-manual')?.addEventListener('submit', async 
 
 async function loadWANsConfig() {
     try {
-        // Cargar estado de WANs
+        // Mostrar estado actual de WANs (informativo)
         const wansResponse = await fetch('/api/wans');
         const wansData = await wansResponse.json();
-        
         const statusList = document.getElementById('wans-status-list');
-        
+
         if (wansData.wans && wansData.wans.length > 0) {
             statusList.innerHTML = wansData.wans.map(wan => `
                 <div class="wan-status-card ${wan.status === 'UP' ? 'wan-up' : 'wan-down'}">
@@ -816,19 +973,75 @@ async function loadWANsConfig() {
         } else {
             statusList.innerHTML = '<div class="loading">No se detectaron WANs</div>';
         }
-        
-        // Cargar rutas por defecto
+
+        // Construir UI de administración: obtener lista de interfaces y la configuración actual
+        const ifResp = await fetch('/api/interfaces');
+        const ifData = await ifResp.json();
+        const adminCfgResp = await fetch('/api/admin/wans-config');
+        const adminCfgData = await adminCfgResp.json();
+        const adminCfg = adminCfgData.config || { wans: {} };
+
+        const ifList = ifData.interfaces || ifData || [];
+        const adminListContainer = document.getElementById('wans-admin-list');
+
+        if (!ifList || ifList.length === 0) {
+            adminListContainer.innerHTML = '<div class="loading">No se encontraron interfaces</div>';
+        } else {
+            adminListContainer.innerHTML = ifList.map(iface => {
+                const cfg = adminCfg.wans && adminCfg.wans[iface.name] ? adminCfg.wans[iface.name] : { selected: false, backup: false };
+                return `
+                    <div class="wan-admin-row" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                        <label style="flex:1;">${iface.name} <small class="muted">${iface.mac || ''}</small></label>
+                        <label><input type="checkbox" class="wan-select-cb" data-iface="${iface.name}" ${cfg.selected ? 'checked' : ''}> WAN</label>
+                        <label style="margin-left:8px;"><input type="radio" name="wan-backup" class="wan-backup-radio" value="${iface.name}" ${cfg.backup ? 'checked' : ''}> Backup</label>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Guardar configuración
+        document.getElementById('btn-save-wans')?.addEventListener('click', async () => {
+            try {
+                const selectedElems = Array.from(document.querySelectorAll('.wan-select-cb'));
+                const newCfg = { wans: {}, markedDevices: adminCfg.markedDevices || [] };
+
+                selectedElems.forEach(cb => {
+                    const name = cb.getAttribute('data-iface');
+                    newCfg.wans[name] = newCfg.wans[name] || { selected: false, backup: false };
+                    newCfg.wans[name].selected = cb.checked;
+                });
+
+                const backupRadio = document.querySelector('.wan-backup-radio:checked');
+                if (backupRadio) {
+                    const backupName = backupRadio.value;
+                    newCfg.wans[backupName] = newCfg.wans[backupName] || { selected: true, backup: false };
+                    newCfg.wans[backupName].backup = true;
+                }
+
+                const resp = await fetch('/api/admin/wans-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newCfg)
+                });
+
+                const r = await resp.json();
+                if (r.success) {
+                    alert('✅ Configuración WAN guardada');
+                } else {
+                    alert('❌ Error guardando configuración: ' + (r.message || ''));
+                }
+            } catch (err) {
+                console.error('Error guardando configuración WAN:', err);
+                alert('❌ Error guardando configuración WAN');
+            }
+        });
+
+        // Cargar rutas por defecto (informativo)
         const routesResponse = await fetch('/api/admin/routes');
         const routesData = await routesResponse.json();
-        
         const routesList = document.getElementById('wan-routes-list');
-        
         if (routesData.success && routesData.routes && routesData.routes.length > 0) {
-            // Filtrar solo rutas por defecto (0.0.0.0/0)
-            const defaultRoutes = routesData.routes.filter(r => 
-                r['dst-address'] === '0.0.0.0/0' || r['dst-address'] === '0.0.0.0'
-            );
-            
+            const defaultRoutes = routesData.routes.filter(r => r['dst-address'] === '0.0.0.0/0' || r['dst-address'] === '0.0.0.0');
             if (defaultRoutes.length > 0) {
                 routesList.innerHTML = defaultRoutes.map(route => `
                     <div class="route-item ${route.disabled === 'true' ? 'disabled' : ''}">
@@ -853,7 +1066,7 @@ async function loadWANsConfig() {
         } else {
             routesList.innerHTML = '<div class="loading">No se pudieron cargar las rutas</div>';
         }
-        
+
     } catch (error) {
         console.error('Error cargando configuración de WANs:', error);
     }

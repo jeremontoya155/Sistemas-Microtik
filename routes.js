@@ -21,9 +21,54 @@ module.exports = (app, controller) => {
      * GET /admin - Página de administración
      */
     app.get('/admin', (req, res) => {
+        // Proteger acceso: sesión en memoria (root / pirineos25*)
+        if (!req.session || !req.session.authenticated) {
+            return res.redirect('/admin/login');
+        }
+
         res.render('admin', {
             title: 'Panel de Administración MikroTik'
         });
+    });
+
+    // Pantalla de login simple (sin DB)
+    app.get('/admin/login', (req, res) => {
+        const error = req.query.error === '1';
+        res.render('login', { title: 'Login Admin', error });
+    });
+
+    // Logout
+    app.get('/admin/logout', (req, res) => {
+        if (req.session) {
+            req.session.destroy(() => {
+                res.redirect('/admin/login');
+            });
+        } else {
+            res.redirect('/admin/login');
+        }
+    });
+
+    // Procesar login (credenciales desde .env)
+    app.post('/admin/login', (req, res) => {
+        const { username, password } = req.body || {};
+
+        // Credenciales desde variables de entorno
+        const adminUser = process.env.ADMIN_USERNAME || 'root';
+        const adminPass = process.env.ADMIN_PASSWORD || 'pirineos25*';
+
+        if (username === adminUser && password === adminPass) {
+            req.session.authenticated = true;
+            return res.redirect('/admin');
+        }
+
+        // Registrar intento fallido en el controlador (solo fallos)
+        try {
+            controller.logAuthFailure(username, req.ip);
+        } catch (err) {
+            console.error('Error registrando intento fallido:', err.message);
+        }
+
+        return res.redirect('/admin/login?error=1');
     });
     
     /**
@@ -343,6 +388,145 @@ module.exports = (app, controller) => {
         }
     });
     
+    // ==================== API: GESTIÓN DE ROUTERS ====================
+    
+    /**
+     * GET /api/routers - Obtener lista de routers configurados
+     */
+    app.get('/api/routers', (req, res) => {
+        try {
+            const routers = controller.getRouters();
+            const activeId = controller.activeRouter ? controller.activeRouter.id : null;
+            const defaultId = controller.routersConfig.defaultRouter;
+            
+            res.json({
+                success: true,
+                routers: routers.map(r => ({
+                    ...r,
+                    password: '***' // No enviar password al cliente
+                })),
+                activeRouter: activeId,
+                defaultRouter: defaultId
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/routers/add - Agregar nuevo router
+     */
+    app.post('/api/routers/add', (req, res) => {
+        try {
+            const { name, host, username, password, port } = req.body;
+            
+            if (!name || !host || !username || !password) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Faltan datos requeridos'
+                });
+            }
+            
+            const newRouter = controller.addRouter({ name, host, username, password, port });
+            
+            res.json({
+                success: true,
+                message: 'Router agregado correctamente',
+                router: { ...newRouter, password: '***' }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * PUT /api/routers/:id - Actualizar router
+     */
+    app.put('/api/routers/:id', (req, res) => {
+        try {
+            const { id } = req.params;
+            const updatedRouter = controller.updateRouter(id, req.body);
+            
+            res.json({
+                success: true,
+                message: 'Router actualizado',
+                router: { ...updatedRouter, password: '***' }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * DELETE /api/routers/:id - Eliminar router
+     */
+    app.delete('/api/routers/:id', (req, res) => {
+        try {
+            const { id } = req.params;
+            controller.deleteRouter(id);
+            
+            res.json({
+                success: true,
+                message: 'Router eliminado'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/routers/:id/default - Establecer router por defecto
+     */
+    app.post('/api/routers/:id/default', (req, res) => {
+        try {
+            const { id } = req.params;
+            const router = controller.setDefaultRouter(id);
+            
+            res.json({
+                success: true,
+                message: `${router.name} establecido como router por defecto`
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
+    /**
+     * POST /api/routers/:id/switch - Cambiar a otro router
+     */
+    app.post('/api/routers/:id/switch', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await controller.switchRouter(id);
+            
+            res.json({
+                success: result.success,
+                message: result.message,
+                router: controller.activeRouter
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+    
     // ==================== API: ADMINISTRACIÓN ====================
     
     /**
@@ -597,6 +781,58 @@ module.exports = (app, controller) => {
                 success: false,
                 message: error.message
             });
+        }
+    });
+
+    /**
+     * GET /api/admin/wans-config - Obtener configuración de WANs administrada desde el panel
+     */
+    app.get('/api/admin/wans-config', (req, res) => {
+        try {
+            const config = controller.getAdminConfig();
+            res.json({ success: true, config });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
+    /**
+     * POST /api/admin/wans-config - Actualizar configuración de WANs (en memoria)
+     */
+    app.post('/api/admin/wans-config', (req, res) => {
+        try {
+            const newConfig = req.body || {};
+            controller.setAdminConfig(newConfig);
+            res.json({ success: true, config: controller.getAdminConfig() });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
+    /**
+     * GET /api/admin/marked-devices - Obtener dispositivos marcados
+     */
+    app.get('/api/admin/marked-devices', (req, res) => {
+        try {
+            const config = controller.getAdminConfig();
+            res.json({ success: true, markedDevices: config.markedDevices || [] });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    });
+
+    /**
+     * POST /api/admin/marked-devices - Actualizar dispositivos marcados
+     */
+    app.post('/api/admin/marked-devices', (req, res) => {
+        try {
+            const { markedDevices } = req.body || {};
+            const cfg = controller.getAdminConfig();
+            cfg.markedDevices = Array.isArray(markedDevices) ? markedDevices : cfg.markedDevices;
+            controller.setAdminConfig(cfg);
+            res.json({ success: true, markedDevices: cfg.markedDevices });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     });
     

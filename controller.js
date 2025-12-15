@@ -5,16 +5,24 @@
  */
 
 const RouterOSAPI = require('node-routeros').RouterOSAPI;
+const fs = require('fs');
+const path = require('path');
 
 class MikroTikController {
     constructor(io) {
         this.io = io;
         
-        // Datos de conexión (EXACTAMENTE como Python)
-        this.host = '181.116.241.192';
-        this.username = 'monitor';
-        this.password = 'Pirineos25*';
-        this.port = 8728;
+        // Ruta al archivo de configuración de routers
+        this.configFile = path.join(__dirname, 'mikrotiks.json');
+        
+        // Router activo actualmente
+        this.activeRouter = null;
+        
+        // Datos de conexión (pueden cambiar según el router seleccionado)
+        this.host = process.env.MIKROTIK_HOST || '181.116.241.192';
+        this.username = process.env.MIKROTIK_USER || 'monitor';
+        this.password = process.env.MIKROTIK_PASSWORD || 'Pirineos25*';
+        this.port = parseInt(process.env.MIKROTIK_PORT) || 8728;
         
         this.connection = null;
         this.isConnected = false;
@@ -163,11 +171,147 @@ class MikroTikController {
         // Tráfico por interfaz
         this.interfaceTraffic = {}; // { interfaceName: { prevRx, prevTx, rxMbps, txMbps } }
         this.selectedInterface = 'all'; // Interfaz seleccionada para el gráfico
+
+        // Configuración de administración (en memoria)
+        this.adminConfig = {
+            // wans: { <ifName>: { backup: false, selected: true } }
+            wans: {},
+            // dispositivos marcados (macs)
+            markedDevices: []
+        };
         
         // Intervalos
         this.intervals = {};
         
+        // Cargar configuración de routers al iniciar
+        this.loadRoutersConfig();
+        
         console.log('✅ MikroTikController inicializado');
+    }
+    
+    // ==================== GESTIÓN DE MÚLTIPLES ROUTERS ====================
+    
+    loadRoutersConfig() {
+        try {
+            if (fs.existsSync(this.configFile)) {
+                const data = fs.readFileSync(this.configFile, 'utf8');
+                const config = JSON.parse(data);
+                this.routersConfig = config;
+                
+                // Si hay un router por defecto, cargarlo
+                if (config.defaultRouter) {
+                    this.activeRouter = config.routers.find(r => r.id === config.defaultRouter);
+                    if (this.activeRouter) {
+                        this.host = this.activeRouter.host;
+                        this.username = this.activeRouter.username;
+                        this.password = this.activeRouter.password;
+                        this.port = this.activeRouter.port;
+                        console.log(`📡 Router por defecto cargado: ${this.activeRouter.name}`);
+                    }
+                }
+            } else {
+                this.routersConfig = { routers: [], defaultRouter: null, lastUpdated: null };
+            }
+        } catch (error) {
+            console.error('Error cargando configuración de routers:', error.message);
+            this.routersConfig = { routers: [], defaultRouter: null, lastUpdated: null };
+        }
+    }
+    
+    saveRoutersConfig() {
+        try {
+            this.routersConfig.lastUpdated = new Date().toISOString();
+            fs.writeFileSync(this.configFile, JSON.stringify(this.routersConfig, null, 2), 'utf8');
+            console.log('✅ Configuración de routers guardada');
+        } catch (error) {
+            console.error('Error guardando configuración:', error.message);
+            throw error;
+        }
+    }
+    
+    getRouters() {
+        return this.routersConfig.routers || [];
+    }
+    
+    addRouter(routerData) {
+        const newRouter = {
+            id: Date.now().toString(),
+            name: routerData.name,
+            host: routerData.host,
+            username: routerData.username,
+            password: routerData.password,
+            port: routerData.port || 8728,
+            createdAt: new Date().toISOString()
+        };
+        
+        this.routersConfig.routers.push(newRouter);
+        
+        // Si es el primero, marcarlo como default
+        if (this.routersConfig.routers.length === 1) {
+            this.routersConfig.defaultRouter = newRouter.id;
+        }
+        
+        this.saveRoutersConfig();
+        return newRouter;
+    }
+    
+    updateRouter(id, routerData) {
+        const index = this.routersConfig.routers.findIndex(r => r.id === id);
+        if (index === -1) throw new Error('Router no encontrado');
+        
+        this.routersConfig.routers[index] = {
+            ...this.routersConfig.routers[index],
+            ...routerData,
+            updatedAt: new Date().toISOString()
+        };
+        
+        this.saveRoutersConfig();
+        return this.routersConfig.routers[index];
+    }
+    
+    deleteRouter(id) {
+        this.routersConfig.routers = this.routersConfig.routers.filter(r => r.id !== id);
+        
+        // Si era el default, limpiar
+        if (this.routersConfig.defaultRouter === id) {
+            this.routersConfig.defaultRouter = this.routersConfig.routers.length > 0 
+                ? this.routersConfig.routers[0].id 
+                : null;
+        }
+        
+        this.saveRoutersConfig();
+    }
+    
+    setDefaultRouter(id) {
+        const router = this.routersConfig.routers.find(r => r.id === id);
+        if (!router) throw new Error('Router no encontrado');
+        
+        this.routersConfig.defaultRouter = id;
+        this.saveRoutersConfig();
+        
+        return router;
+    }
+    
+    async switchRouter(id) {
+        const router = this.routersConfig.routers.find(r => r.id === id);
+        if (!router) throw new Error('Router no encontrado');
+        
+        // Desconectar el actual si está conectado
+        if (this.isConnected) {
+            this.disconnect();
+        }
+        
+        // Cambiar credenciales
+        this.host = router.host;
+        this.username = router.username;
+        this.password = router.password;
+        this.port = router.port;
+        this.activeRouter = router;
+        
+        console.log(`🔄 Cambiado a router: ${router.name} (${router.host})`);
+        
+        // Intentar conectar automáticamente
+        return await this.connect();
     }
     
     // ==================== CONEXIÓN ====================
@@ -310,6 +454,8 @@ class MikroTikController {
                 disabled: iface.disabled === 'true',
                 mac: iface['mac-address'] || 'N/A',
                 mtu: iface.mtu || 'N/A',
+                rxBytesRaw: parseInt(iface['rx-byte'] || 0),
+                txBytesRaw: parseInt(iface['tx-byte'] || 0),
                 rxBytes: this.formatBytes(parseInt(iface['rx-byte'] || 0)),
                 txBytes: this.formatBytes(parseInt(iface['tx-byte'] || 0)),
                 rxPackets: parseInt(iface['rx-packet'] || 0),
@@ -418,24 +564,30 @@ class MikroTikController {
         this.attackCount = 0;
         this.blockedAttacks = 0;
         this.securityEvents = [];
+        let failedLogins = 0;
         
         this.logs.forEach(log => {
             const message = log.message.toLowerCase();
             const topics = log.topics.toLowerCase();
             
-            // Detectar intentos de login fallidos
-            if (message.includes('login') && message.includes('failed')) {
+            // Detectar intentos de login fallidos EN EL MIKROTIK (no web)
+            if ((message.includes('login') && message.includes('failed')) ||
+                (message.includes('authentication failed')) ||
+                (message.includes('invalid user')) ||
+                (topics.includes('critical') && message.includes('login'))) {
                 this.attackCount++;
+                failedLogins++;
                 this.securityEvents.push({
                     time: log.time,
                     type: 'failed_login',
                     severity: 'high',
-                    message: log.message
+                    message: log.message,
+                    source: 'mikrotik'
                 });
             }
             
             // Detectar ataques bloqueados por firewall
-            if (topics.includes('firewall') || message.includes('blocked')) {
+            if (topics.includes('firewall') || message.includes('blocked') || message.includes('dropped')) {
                 this.blockedAttacks++;
                 this.securityEvents.push({
                     time: log.time,
@@ -446,10 +598,13 @@ class MikroTikController {
             }
         });
         
+        console.log(`🔐 Intentos de login fallidos detectados en MikroTik: ${failedLogins}`);
+        
         this.io.emit('security_update', {
             events: this.securityEvents.slice(-20),
             attacks: this.attackCount,
-            blocked: this.blockedAttacks
+            blocked: this.blockedAttacks,
+            failedLogins: failedLogins
         });
     }
     
@@ -651,6 +806,20 @@ class MikroTikController {
                 displayTx = this.interfaceTraffic[this.selectedInterface].txMbps;
             }
             
+            // Preparar datos de tráfico por WAN (solo las seleccionadas en adminConfig)
+            const wanTrafficData = {};
+            if (this.adminConfig && this.adminConfig.wans) {
+                Object.entries(this.adminConfig.wans).forEach(([wanName, wanCfg]) => {
+                    if (wanCfg.selected && this.interfaceTraffic[wanName]) {
+                        wanTrafficData[wanName] = {
+                            rx: parseFloat(this.interfaceTraffic[wanName].rxMbps.toFixed(2)),
+                            tx: parseFloat(this.interfaceTraffic[wanName].txMbps.toFixed(2)),
+                            isBackup: wanCfg.backup || false
+                        };
+                    }
+                });
+            }
+            
             // Emitir datos via WebSocket SIEMPRE (incluso en primer ciclo)
             const trafficData = {
                 time: this.counter,
@@ -665,7 +834,8 @@ class MikroTikController {
                 errors: totalErrors,
                 drops: totalDrops,
                 selectedInterface: this.selectedInterface,
-                interfaceTraffic: this.interfaceTraffic
+                interfaceTraffic: this.interfaceTraffic,
+                wanTraffic: wanTrafficData // Tráfico específico de WANs configuradas
             };
             
             this.io.emit('traffic_update', trafficData);
@@ -783,6 +953,35 @@ class MikroTikController {
             wans: wanData,
             changes: this.wanChanges
         };
+    }
+
+    // ==================== ADMIN CONFIG ====================
+
+    getAdminConfig() {
+        return this.adminConfig;
+    }
+
+    setAdminConfig(newConfig) {
+        if (!newConfig) return;
+        if (newConfig.wans) this.adminConfig.wans = newConfig.wans;
+        if (newConfig.markedDevices) this.adminConfig.markedDevices = newConfig.markedDevices;
+        // Emitir evento para que UI se actualice si hace falta
+        this.io.emit('admin_config_update', this.adminConfig);
+    }
+
+    // Registrar intento de autenticación fallido (solo fallos)
+    logAuthFailure(username, ip) {
+        const event = {
+            time: new Date().toISOString(),
+            type: 'auth_failed',
+            username: username || 'unknown',
+            ip: ip || 'unknown',
+            message: 'Intento de inicio de sesión fallido'
+        };
+        this.securityEvents.push(event);
+        // emitir un evento de seguridad
+        this.io.emit('security_event', event);
+        console.log('🔐 Intento de login fallido registrado:', event);
     }
     
     // Cambiar interfaz seleccionada para el gráfico

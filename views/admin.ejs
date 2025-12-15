@@ -31,7 +31,8 @@
         
         <!-- Navegación de pestañas -->
         <div class="admin-tabs">
-            <button class="tab-btn active" data-tab="firewall">🔥 Firewall</button>
+            <button class="tab-btn active" data-tab="routers">🌐 MikroTiks</button>
+            <button class="tab-btn" data-tab="firewall">🔥 Firewall</button>
             <button class="tab-btn" data-tab="nat">🔄 NAT</button>
             <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
             <button class="tab-btn" data-tab="cameras">📹 Cámaras</button>
@@ -42,9 +43,70 @@
             <button class="tab-btn" data-tab="scheduler">⏰ Tareas Programadas</button>
             <button class="tab-btn" data-tab="backup">💾 Backup & Restore</button>
         </div>
+        
+        <!-- Tab: Gestión de Routers MikroTik -->
+        <div class="tab-content active" id="tab-routers">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>🌐 Gestión de Routers MikroTik</h2>
+                    <button class="btn btn-success" onclick="showAddRouter()">
+                        ➕ Agregar Router
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <p class="info-text">
+                        📌 Configura múltiples routers MikroTik y cambia entre ellos fácilmente. 
+                        El router marcado como <strong>por defecto</strong> se cargará automáticamente al iniciar.
+                    </p>
+                    
+                    <div id="routers-list" class="rules-list">
+                        <div class="loading">Cargando routers...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Agregar Router -->
+            <div class="modal" id="modal-add-router">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>➕ Agregar Nuevo Router</h3>
+                        <span class="modal-close" onclick="closeModal('modal-add-router')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-add-router">
+                            <div class="form-group">
+                                <label>Nombre del Router: *</label>
+                                <input type="text" name="name" placeholder="Oficina Principal" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Host / IP: *</label>
+                                <input type="text" name="host" placeholder="192.168.1.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Usuario: *</label>
+                                <input type="text" name="username" value="monitor" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña: *</label>
+                                <input type="password" name="password" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Puerto:</label>
+                                <input type="number" name="port" value="8728">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Agregar</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-router')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Tab: Firewall -->
-        <div class="tab-content active" id="tab-firewall">
+        <div class="tab-content" id="tab-firewall">
             <div class="admin-section">
                 <div class="section-header">
                     <h2>🔥 Reglas de Firewall</h2>
@@ -398,6 +460,15 @@ add dst-address=0.0.0.0/0 gateway=<WAN1_IP> routing-mark=to-wan1
 add dst-address=0.0.0.0/0 gateway=<WAN2_IP> routing-mark=to-wan2
                             </pre>
                             
+                            <!-- Panel de administración para seleccionar WANs y marcar backup -->
+                            <div class="admin-wans-config">
+                                <h4>🔧 Seleccionar interfaces WAN (desde el panel)</h4>
+                                <p>Marca las interfaces que actuarán como WAN y selecciona cuál será la backup.</p>
+                                <div id="wans-admin-list">Cargando interfaces...</div>
+                                <div style="margin-top:10px;">
+                                    <button class="btn btn-success" id="btn-save-wans">Guardar configuración WAN</button>
+                                </div>
+                            </div>
                             <p style="margin-top: 15px;">
                                 💡 <strong>Tip:</strong> Para configuración avanzada, accede a WinBox o WebFig del MikroTik.
                                 Esta interfaz permite monitorear y hacer cambios básicos de rutas.

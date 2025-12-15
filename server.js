@@ -9,6 +9,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const session = require('express-session');
 const routes = require('./routes');
 const MikroTikController = require('./controller');
 
@@ -29,6 +30,13 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Sesiones simples en memoria (no productivo, como pidió sin DB)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'mikrotik-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Configurar EJS como motor de plantillas

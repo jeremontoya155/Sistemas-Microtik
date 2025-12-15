@@ -178,8 +178,14 @@ function updateWANs(data) {
     
     elements.wansCount.textContent = wans.length;
     
+    // Obtener la interfaz actualmente seleccionada (del selector o localStorage)
+    let currentSelected = localStorage.getItem('selectedWAN') || 'all';
+    
     elements.wansGrid.innerHTML = wans.map(wan => `
-        <div class="wan-item ${wan.running ? 'up' : 'down'}">
+        <div class="wan-item ${wan.running ? 'up' : 'down'} ${currentSelected === wan.name ? 'selected' : ''}" 
+             data-wan-name="${wan.name}" 
+             onclick="selectWANCard('${wan.name}')" 
+             style="cursor: pointer;">
             <div class="wan-name">${wan.name}</div>
             <div class="wan-status ${wan.running ? 'up' : 'down'}">
                 ${wan.running ? 'UP' : 'DOWN'}
@@ -187,6 +193,52 @@ function updateWANs(data) {
             ${wan.uptime ? `<div class="wan-uptime">${formatUptime(wan.uptime)}</div>` : ''}
         </div>
     `).join('');
+}
+
+// Función para seleccionar una WAN al hacer clic en su tarjeta
+async function selectWANCard(wanName) {
+    console.log(`🎯 WAN seleccionada: ${wanName}`);
+    
+    // Guardar en localStorage
+    localStorage.setItem('selectedWAN', wanName);
+    
+    // Actualizar selector dropdown si existe
+    if (elements.wanSelector) {
+        elements.wanSelector.value = wanName;
+    }
+    
+    // Llamar al API para cambiar la interfaz seleccionada
+    try {
+        const response = await fetch('/api/select-interface', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interface: wanName })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log(`✅ Gráfico cambiado a: ${wanName}`);
+            
+            // Limpiar gráfico para mostrar nuevos datos
+            if (trafficChart) {
+                trafficChart.data.labels = [];
+                trafficChart.data.datasets[0].data = [];
+                trafficChart.data.datasets[1].data = [];
+                trafficChart.update();
+            }
+            
+            // Resaltar visualmente la WAN seleccionada
+            document.querySelectorAll('.wan-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.querySelector(`.wan-item[data-wan-name="${wanName}"]`)?.classList.add('selected');
+        } else {
+            console.error('Error cambiando interfaz:', result.message);
+        }
+    } catch (error) {
+        console.error('Error cambiando interfaz:', error);
+    }
 }
 
 // ==================== ACTUALIZACIÓN DE RECURSOS ==================== //
@@ -312,6 +364,13 @@ function updateTraffic(data) {
     // Actualizar valores - mostrar en Mbps directamente
     elements.rxValue.textContent = `${rxMbps.toFixed(2)} Mbps`;
     elements.txValue.textContent = `${txMbps.toFixed(2)} Mbps`;
+    
+    // Mostrar tráfico por WAN individual (si existe)
+    if (data.wanTraffic && Object.keys(data.wanTraffic).length > 0) {
+        console.log('📡 Tráfico por WAN:', data.wanTraffic);
+        // Aquí podrías agregar UI adicional para mostrar tráfico por WAN
+        // Por ahora solo lo logueamos, puedes expandir esto después
+    }
     
     // Actualizar gráfico
     if (trafficChart) {
@@ -520,31 +579,67 @@ async function disconnectDevice(mac) {
 
 // ==================== SELECTOR DE WAN ==================== //
 
-function updateWANSelector(interfaces) {
+async function updateWANSelector(interfaces) {
     if (!elements.wanSelector) return;
-    
-    // Filtrar solo interfaces que podrían ser WANs
-    const wanKeywords = ['wan', 'ether1', 'ether2', 'pppoe', 'lte', 'sfp', 'fiber'];
-    const wanInterfaces = interfaces.filter(iface => {
-        const name = iface.name.toLowerCase();
-        return wanKeywords.some(keyword => name.includes(keyword)) || iface.running;
-    });
-    
-    // Construir opciones
-    let options = '<option value="all">📡 Todas las Interfaces</option>';
-    
-    wanInterfaces.forEach(iface => {
-        const icon = iface.running ? '🟢' : '🔴';
-        options += `<option value="${iface.name}">${icon} ${iface.name}</option>`;
-    });
-    
-    elements.wanSelector.innerHTML = options;
+    try {
+        // Intentar obtener configuración administrada de WANs
+        const resp = await fetch('/api/admin/wans-config');
+        const cfg = await resp.json();
+
+        let candidateIfaces = interfaces;
+
+        if (cfg && cfg.config && cfg.config.wans) {
+            // Usar solo las interfaces marcadas como selected en el config
+            const selectedNames = Object.entries(cfg.config.wans)
+                .filter(([k, v]) => v && v.selected)
+                .map(([k]) => k);
+
+            if (selectedNames.length > 0) {
+                candidateIfaces = interfaces.filter(i => selectedNames.includes(i.name));
+            }
+        }
+
+        // Fallback: heurística por nombre/estado
+        if (!candidateIfaces || candidateIfaces.length === 0) {
+            const wanKeywords = ['wan', 'ether1', 'ether2', 'pppoe', 'lte', 'sfp', 'fiber'];
+            candidateIfaces = interfaces.filter(iface => {
+                const name = iface.name.toLowerCase();
+                return wanKeywords.some(keyword => name.includes(keyword)) || iface.running;
+            });
+        }
+
+        // Construir opciones
+        let options = '<option value="all">📡 Todas las Interfaces</option>';
+        candidateIfaces.forEach(iface => {
+            const icon = iface.running ? '🟢' : '🔴';
+            options += `<option value="${iface.name}">${icon} ${iface.name}</option>`;
+        });
+
+        elements.wanSelector.innerHTML = options;
+    } catch (err) {
+        console.error('Error obteniendo config admin de WANs:', err);
+        // fallback simple
+        const wanKeywords = ['wan', 'ether1', 'ether2', 'pppoe', 'lte', 'sfp', 'fiber'];
+        const wanInterfaces = interfaces.filter(iface => {
+            const name = iface.name.toLowerCase();
+            return wanKeywords.some(keyword => name.includes(keyword)) || iface.running;
+        });
+        let options = '<option value="all">📡 Todas las Interfaces</option>';
+        wanInterfaces.forEach(iface => {
+            const icon = iface.running ? '🟢' : '🔴';
+            options += `<option value="${iface.name}">${icon} ${iface.name}</option>`;
+        });
+        elements.wanSelector.innerHTML = options;
+    }
 }
 
-// Manejar cambio de interfaz
+// Manejar cambio de interfaz desde el selector dropdown
 if (elements.wanSelector) {
     elements.wanSelector.addEventListener('change', async (e) => {
         const selectedInterface = e.target.value;
+        
+        // Guardar en localStorage
+        localStorage.setItem('selectedWAN', selectedInterface);
         
         try {
             const response = await fetch('/api/select-interface', {
@@ -557,6 +652,14 @@ if (elements.wanSelector) {
             
             if (result.success) {
                 console.log(`✅ Interfaz cambiada a: ${selectedInterface}`);
+                
+                // Sincronizar con las tarjetas WAN
+                document.querySelectorAll('.wan-item').forEach(item => {
+                    item.classList.remove('selected');
+                    if (item.dataset.wanName === selectedInterface) {
+                        item.classList.add('selected');
+                    }
+                });
                 
                 // Limpiar gráfico para mostrar nuevos datos
                 if (trafficChart) {
@@ -588,6 +691,12 @@ function playAlert() {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Aplicación iniciada');
+    
+    // Restaurar WAN seleccionada desde localStorage
+    const savedWAN = localStorage.getItem('selectedWAN');
+    if (savedWAN && elements.wanSelector) {
+        elements.wanSelector.value = savedWAN;
+    }
     
     // Inicializar gráficos
     initTrafficChart();
