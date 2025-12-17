@@ -1,0 +1,554 @@
+/**
+ * Multi-Dashboard CSS - Diseño Estético Mejorado
+ * Vista de múltiples MikroTiks con gráficos y animaciones
+ */
+
+/* ==================== CONTENEDOR PRINCIPAL ==================== */
+
+.multi-container {
+    padding: 25px;
+    max-width: 100%;
+    margin: 0 auto;
+    animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==================== RESUMEN GENERAL ==================== */
+
+.summary-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(40, 40, 50, 0.95));
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 25px rgba(91, 155, 213, 0.3);
+}
+
+.summary-card:hover::before {
+    opacity: 1;
+}
+
+.summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.summary-icon {
+    font-size: 36px;
+    filter: drop-shadow(0 0 10px currentColor);
+}
+
+.summary-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 15px rgba(91, 155, 213, 0.4);
+}
+
+.summary-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.summary-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== GRID DE ROUTERS ==================== */
+
+.routers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 25px;
+    margin-top: 25px;
+}
+
+/* ==================== TARJETA DE ROUTER ==================== */
+
+.router-card {
+    background: linear-gradient(135deg, rgba(36, 39, 58, 0.98), rgba(29, 32, 45, 0.98));
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.router-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 35px rgba(91, 155, 213, 0.25);
+    border-color: var(--accent);
+}
+
+.router-card.offline {
+    opacity: 0.6;
+    border-color: var(--danger);
+}
+
+.router-card.offline:hover {
+    box-shadow: 0 12px 35px rgba(244, 67, 54, 0.25);
+}
+
+/* ==================== HEADER DE ROUTER ==================== */
+
+.router-header {
+    background: linear-gradient(135deg, rgba(91, 155, 213, 0.2), rgba(74, 144, 226, 0.1));
+    padding: 20px;
+    border-bottom: 2px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.router-header::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05));
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0%, 100% { transform: translateX(100%); }
+    50% { transform: translateX(-100%); }
+}
+
+.router-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.router-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.router-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+.router-status .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 15px var(--success);
+    animation: pulse 2s infinite;
+}
+
+.router-status.offline .status-dot {
+    background: var(--danger);
+    box-shadow: 0 0 15px var(--danger);
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+.router-host {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+/* ==================== CUERPO DE ROUTER ==================== */
+
+.router-body {
+    padding: 20px;
+}
+
+/* ==================== SECCIÓN DE RECURSOS ==================== */
+
+.section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+}
+
+.resources-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.resource-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    transition: all 0.3s ease;
+}
+
+.resource-item:hover {
+    border-color: var(--accent);
+    background: rgba(91, 155, 213, 0.1);
+}
+
+.resource-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.resource-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.resource-bar {
+    margin-top: 8px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.resource-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--accent));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.resource-bar-fill.warning {
+    background: linear-gradient(90deg, var(--warning), #ff6b35);
+}
+
+.resource-bar-fill.danger {
+    background: linear-gradient(90deg, var(--danger), #c62828);
+}
+
+/* ==================== GRÁFICO DE RECURSOS ==================== */
+
+.resource-chart {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    height: 200px;
+}
+
+/* ==================== WANS ==================== */
+
+.wans-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wan-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+}
+
+.wan-item:hover {
+    border-color: var(--accent);
+    background: rgba(91, 155, 213, 0.1);
+    transform: translateX(5px);
+}
+
+.wan-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.wan-status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
+    animation: pulse 2s infinite;
+}
+
+.wan-status-dot.disabled {
+    background: var(--text-secondary);
+    box-shadow: none;
+    animation: none;
+}
+
+.wan-details {
+    flex: 1;
+}
+
+.wan-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.wan-ip {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+}
+
+.wan-traffic {
+    display: flex;
+    gap: 15px;
+    font-size: 11px;
+}
+
+.wan-traffic-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.wan-traffic-label {
+    color: var(--text-secondary);
+}
+
+.wan-traffic-value {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* ==================== MINI GRÁFICO POR WAN ==================== */
+
+.wan-chart-container {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.wan-chart {
+    height: 120px;
+}
+
+/* ==================== TRÁFICO TOTAL ==================== */
+
+.traffic-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.traffic-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.traffic-item:hover {
+    border-color: var(--accent);
+    transform: scale(1.05);
+}
+
+.traffic-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+}
+
+.traffic-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.traffic-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* ==================== DISPOSITIVOS ==================== */
+
+.devices-count {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.devices-count:hover {
+    border-color: var(--success);
+    transform: scale(1.05);
+}
+
+.devices-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px var(--success));
+}
+
+.devices-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--success);
+    margin-bottom: 5px;
+}
+
+.devices-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* ==================== ESTADOS ==================== */
+
+.offline-message {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.offline-message .icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.offline-message p {
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ==================== ANIMACIONES Y TRANSICIONES ==================== */
+
+.fade-in {
+    animation: fadeIn 0.5s ease;
+}
+
+.slide-in {
+    animation: slideIn 0.5s ease;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 1400px) {
+    .routers-grid {
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    }
+}
+
+@media (max-width: 1024px) {
+    .routers-grid {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    }
+    
+    .summary-section {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .routers-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-section {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .resources-grid {
+        grid-template-columns: 1fr;
+    }
+}

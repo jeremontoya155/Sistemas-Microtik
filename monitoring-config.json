@@ -1,0 +1,28 @@
+{
+  "routers": [
+    {
+      "routerId": "1765898769124",
+      "wans": [
+        "SDWAN-RT",
+        "bridge",
+        "bridge CCTV"
+      ]
+    },
+    {
+      "routerId": "1765931037985",
+      "wans": [
+        "bridgeLAN",
+        "bridgeWiFi"
+      ]
+    },
+    {
+      "routerId": "1765931094604",
+      "wans": [
+        "WAN1",
+        "WAN2",
+        "SDWAN-RT",
+        "bridge-lan"
+      ]
+    }
+  ]
+}

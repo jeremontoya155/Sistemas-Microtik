@@ -16,6 +16,15 @@ module.exports = (app, controller) => {
             status: controller.getStatus()
         });
     });
+
+    /**
+     * GET /multi-dashboard - Dashboard multi-router (todos los MikroTiks en paralelo)
+     */
+    app.get('/multi-dashboard', (req, res) => {
+        res.render('multi-dashboard', {
+            title: 'Multi-Dashboard - Todos los MikroTiks'
+        });
+    });
     
     /**
      * GET /admin - Página de administración
@@ -518,6 +527,152 @@ module.exports = (app, controller) => {
                 success: result.success,
                 message: result.message,
                 router: controller.activeRouter
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    // ==================== API: MULTI-DASHBOARD ====================
+    
+    /**
+     * GET /api/multi/all-routers - Obtener datos de todos los routers en paralelo
+     */
+    app.get('/api/multi/all-routers', async (req, res) => {
+        try {
+            const allData = await controller.getAllRoutersData();
+            
+            res.json({
+                success: true,
+                routers: allData,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/multi/routers-status - Obtener estado de conectividad de todos los routers
+     */
+    app.get('/api/multi/routers-status', (req, res) => {
+        try {
+            const status = controller.getRoutersStatus();
+            
+            res.json({
+                success: true,
+                routers: status,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/multi/routers-history - Obtener historial de eventos de routers
+     */
+    app.get('/api/multi/routers-history', (req, res) => {
+        try {
+            const history = controller.getRoutersHistory();
+            
+            res.json({
+                success: true,
+                history: history,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/multi/start-monitoring - Iniciar monitoreo de routers
+     */
+    app.post('/api/multi/start-monitoring', (req, res) => {
+        try {
+            controller.startRoutersMonitoring();
+            
+            res.json({
+                success: true,
+                message: 'Monitoreo iniciado'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/multi/stop-monitoring - Detener monitoreo de routers
+     */
+    app.post('/api/multi/stop-monitoring', (req, res) => {
+        try {
+            controller.stopRoutersMonitoring();
+            
+            res.json({
+                success: true,
+                message: 'Monitoreo detenido'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/multi/monitoring-config - Obtener configuración de WANs a monitorear
+     */
+    app.get('/api/multi/monitoring-config', (req, res) => {
+        try {
+            const config = controller.getMonitoringConfig();
+            res.json({
+                success: true,
+                config: config
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/multi/monitoring-config - Guardar configuración de WANs a monitorear
+     */
+    app.post('/api/multi/monitoring-config', (req, res) => {
+        try {
+            const { routers } = req.body;
+            
+            if (!routers || !Array.isArray(routers)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Configuración inválida'
+                });
+            }
+
+            controller.saveMonitoringConfig({ routers });
+            
+            res.json({
+                success: true,
+                message: 'Configuración guardada exitosamente'
             });
         } catch (error) {
             res.status(500).json({

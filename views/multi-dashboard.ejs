@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Dashboard - Todos los MikroTiks</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/multi-dashboard-simple.css">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>🌐 Multi-Dashboard - Todos los MikroTiks</h1>
+            <p id="clock">Cargando...</p>
+        </div>
+        <div class="header-right">
+            <a href="/" class="btn btn-secondary" style="margin-right: 10px;">
+                📊 Dashboard Principal
+            </a>
+            <a href="/admin" class="btn btn-secondary" style="margin-right: 10px;">
+                ⚙️ Administración
+            </a>
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="connection-status">Cargando routers...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Container Principal -->
+    <div class="multi-container">
+        <!-- Resumen Compacto -->
+        <div class="summary-compact">
+            <div class="summary-item">
+                <span class="summary-icon">📡</span>
+                <div class="summary-info">
+                    <span class="summary-label">Routers</span>
+                    <span class="summary-value" id="total-routers">0</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <span class="summary-icon">🌐</span>
+                <div class="summary-info">
+                    <span class="summary-label">WANs</span>
+                    <span class="summary-value" id="total-wans">0</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <span class="summary-icon">💻</span>
+                <div class="summary-info">
+                    <span class="summary-label">Dispositivos</span>
+                    <span class="summary-value" id="total-devices">0</span>
+                </div>
+            </div>
+            <div class="summary-item">
+                <span class="summary-icon">📊</span>
+                <div class="summary-info">
+                    <span class="summary-label">Tráfico</span>
+                    <span class="summary-value" style="font-size: 12px;">
+                        <span style="color: #4caf50;">↓<span id="total-rx">0</span></span> / 
+                        <span style="color: #2196f3;">↑<span id="total-tx">0</span></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de Routers Simple -->
+        <div id="routers-grid" class="routers-grid">
+            <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
+                <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
+                <p>Cargando información de todos los routers...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Alertas (mantener el existente) -->
+    <div id="alerts-panel" class="alerts-panel hidden">
+        <div class="alerts-header">
+            <h3>🔔 Alertas de Routers</h3>
+            <button id="alerts-close" class="alerts-close">✕</button>
+        </div>
+        <div class="alerts-body" id="alerts-body">
+            <p style="text-align: center; color: var(--text-secondary); padding: 20px;">
+                No hay alertas recientes
+            </p>
+        </div>
+    </div>
+    <button id="alerts-toggle" class="alerts-toggle">
+        <span class="alerts-badge" id="alerts-count">0</span>
+        🔔
+    </button>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/multi-dashboard-simple.js"></script>
+</body>
+</html>

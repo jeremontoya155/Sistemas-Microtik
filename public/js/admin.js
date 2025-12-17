@@ -56,6 +56,124 @@ socket.on('cameras_update', (data) => {
     }
 });
 
+// Escuchar alertas de routers
+socket.on('router-alert', (alert) => {
+    console.log('🔔 Alerta recibida:', alert);
+    addAlert(alert);
+});
+
+// Escuchar estado de routers
+socket.on('routers-status', (data) => {
+    console.log('📊 Estado de routers actualizado:', data.routers);
+});
+
+// ==================== ALERTAS ==================== //
+
+let alertsHistory = [];
+let alertsCount = 0;
+
+function toggleAlertsPanel() {
+    const panel = document.getElementById('alerts-panel');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+function addAlert(alert) {
+    alertsHistory.unshift(alert);
+    
+    // Mantener solo las últimas 20 alertas
+    if (alertsHistory.length > 20) {
+        alertsHistory = alertsHistory.slice(0, 20);
+    }
+    
+    updateAlertsUI();
+    
+    // Reproducir sonido solo para caídas
+    if (alert.type === 'router-down') {
+        playAlertSound();
+        
+        // Mostrar notificación del navegador si está permitido
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🚨 Router Caído', {
+                body: `${alert.routerName} (${alert.host}) no responde`,
+                icon: '/favicon.ico'
+            });
+        }
+    }
+}
+
+function updateAlertsUI() {
+    const alertsList = document.getElementById('alerts-list');
+    const alertsBadge = document.getElementById('alerts-count');
+    
+    if (!alertsList) return;
+    
+    // Contar solo alertas de caídas no recuperadas
+    const activeAlerts = alertsHistory.filter(a => a.type === 'router-down');
+    alertsCount = activeAlerts.length;
+    
+    // Actualizar badge
+    if (alertsBadge) {
+        alertsBadge.textContent = alertsCount;
+        if (alertsCount === 0) {
+            alertsBadge.classList.add('hidden');
+        } else {
+            alertsBadge.classList.remove('hidden');
+        }
+    }
+    
+    // Renderizar alertas
+    if (alertsHistory.length === 0) {
+        alertsList.innerHTML = '<div class="no-alerts">Sin alertas recientes</div>';
+    } else {
+        alertsList.innerHTML = alertsHistory.map(alert => {
+            const isDown = alert.type === 'router-down';
+            const icon = isDown ? '❌' : '✅';
+            const className = isDown ? 'alert-item' : 'alert-item recovered';
+            const time = new Date(alert.timestamp).toLocaleString('es-AR');
+            
+            return `
+                <div class="${className}">
+                    <div class="alert-title">
+                        <span class="icon">${icon}</span>
+                        ${alert.routerName}
+                    </div>
+                    <div class="alert-details">
+                        Host: ${alert.host}
+                    </div>
+                    ${alert.error ? `<div class="alert-error">${alert.error}</div>` : ''}
+                    <div class="alert-time">${time}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+function playAlertSound() {
+    // Crear un simple beep
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+}
+
+// Solicitar permiso para notificaciones
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+
 // ==================== FUNCIONES DE CARGA ==================== //
 
 function loadTabData(tabId) {
@@ -64,6 +182,9 @@ function loadTabData(tabId) {
     switch(tabId) {
         case 'routers':
             loadRouters();
+            break;
+        case 'monitoring':
+            loadMonitoringConfig();
             break;
         case 'firewall':
             loadFirewallRules();
@@ -143,6 +264,7 @@ async function loadRouters() {
                     <div class="rule-actions" style="flex-direction:column;gap:5px;">
                         ${!isActive ? `<button class="btn-rule btn-enable" onclick="switchToRouter('${router.id}')">🔄 Conectar</button>` : ''}
                         ${!isDefault ? `<button class="btn-rule btn-edit" onclick="setDefaultRouter('${router.id}')">⭐ Hacer Default</button>` : ''}
+                        <button class="btn-rule btn-edit" onclick="showEditRouter('${router.id}')">✏️ Editar</button>
                         <button class="btn-rule btn-delete" onclick="deleteRouter('${router.id}')">🗑️ Eliminar</button>
                     </div>
                 </div>
@@ -254,6 +376,93 @@ async function deleteRouter(id) {
     }
 }
 
+// Variables globales para edición
+let routersData = [];
+
+async function showEditRouter(id) {
+    try {
+        // Obtener datos actualizados de routers
+        const response = await fetch('/api/routers');
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('❌ Error cargando datos del router');
+            return;
+        }
+        
+        const router = data.routers.find(r => r.id === id);
+        
+        if (!router) {
+            alert('❌ Router no encontrado');
+            return;
+        }
+        
+        // Llenar el formulario con los datos actuales
+        document.getElementById('edit-router-id').value = router.id;
+        document.getElementById('edit-router-name').value = router.name;
+        document.getElementById('edit-router-host').value = router.host;
+        document.getElementById('edit-router-username').value = router.username;
+        document.getElementById('edit-router-password').value = ''; // No mostrar password
+        document.getElementById('edit-router-port').value = router.port || 8728;
+        
+        // Mostrar modal
+        document.getElementById('modal-edit-router').classList.add('active');
+        
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+// Handler para el formulario de edición
+document.getElementById('form-edit-router')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {};
+    
+    formData.forEach((value, key) => {
+        // Solo incluir password si se ingresó uno nuevo
+        if (key === 'password' && !value) {
+            return; // Saltar password vacío
+        }
+        if (value) data[key] = value;
+    });
+    
+    const routerId = data.id;
+    delete data.id; // No enviar el ID en el body
+    
+    try {
+        const response = await fetch(`/api/routers/${routerId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Router actualizado correctamente');
+            closeModal('modal-edit-router');
+            loadRouters();
+            e.target.reset();
+            
+            // Si es el router activo, ofrecer reconectar
+            const routersResponse = await fetch('/api/routers');
+            const routersData = await routersResponse.json();
+            
+            if (routersData.activeRouter === routerId) {
+                if (confirm('Este es el router activo. ¿Deseas reconectar con las nuevas credenciales?')) {
+                    await switchToRouter(routerId);
+                }
+            }
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error actualizando router: ' + error.message);
+    }
+});
+
 async function checkConnection() {
     try {
         const response = await fetch('/api/status');
@@ -268,6 +477,132 @@ async function checkConnection() {
         }
     } catch (error) {
         console.error('Error verificando conexión:', error);
+    }
+}
+
+// ==================== CONFIGURACIÓN MULTI-DASHBOARD ==================== //
+
+let monitoringConfig = {
+    routers: [] // Array de {routerId, wans: [nombres de WANs seleccionadas]}
+};
+
+async function loadMonitoringConfig() {
+    const container = document.getElementById('monitoring-config-container');
+    
+    try {
+        // Obtener todos los routers
+        const routersResponse = await fetch('/api/routers');
+        const routersData = await routersResponse.json();
+        
+        if (!routersData.success || !routersData.routers || routersData.routers.length === 0) {
+            container.innerHTML = '<div class="loading">⚠️ No hay routers configurados. Agrega routers primero en la pestaña MikroTiks.</div>';
+            return;
+        }
+        
+        // Obtener configuración guardada
+        const configResponse = await fetch('/api/multi/monitoring-config');
+        const configData = await configResponse.json();
+        
+        if (configData.success) {
+            monitoringConfig = configData.config;
+        }
+        
+        // Obtener datos de todos los routers (interfaces)
+        const allDataResponse = await fetch('/api/multi/all-routers');
+        const allData = await allDataResponse.json();
+        
+        container.innerHTML = routersData.routers.map(router => {
+            const routerData = allData.routers?.find(r => r.id === router.id);
+            const routerConfig = monitoringConfig.routers.find(r => r.routerId === router.id) || { routerId: router.id, wans: [] };
+            
+            let wansHTML = '';
+            
+            if (routerData && routerData.connected && routerData.interfaces) {
+                const wanInterfaces = routerData.interfaces.filter(i => i.running && !i.disabled);
+                
+                wansHTML = wanInterfaces.map(wan => {
+                    const isChecked = routerConfig.wans.includes(wan.name) ? 'checked' : '';
+                    return `
+                        <label class="wan-checkbox-item">
+                            <input type="checkbox" 
+                                   class="wan-checkbox" 
+                                   data-router="${router.id}" 
+                                   data-wan="${wan.name}" 
+                                   ${isChecked}>
+                            <span class="wan-checkbox-label">
+                                <span class="wan-checkbox-name">${wan.name}</span>
+                                <span class="wan-checkbox-ip">${wan.ipAddress || 'Sin IP'}</span>
+                            </span>
+                        </label>
+                    `;
+                }).join('');
+            } else {
+                wansHTML = '<div class="no-wans">❌ Router desconectado o sin WANs disponibles</div>';
+            }
+            
+            return `
+                <div class="router-config-card">
+                    <div class="router-config-header">
+                        <h3>${router.name}</h3>
+                        <span class="router-config-host">${router.host}</span>
+                    </div>
+                    <div class="router-config-body">
+                        <h4>🔌 Selecciona las WANs a monitorear:</h4>
+                        <div class="wans-checkbox-list">
+                            ${wansHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error cargando configuración:', error);
+        container.innerHTML = '<div class="loading">❌ Error cargando configuración</div>';
+    }
+}
+
+async function saveMonitoringConfig() {
+    try {
+        // Recopilar configuración de checkboxes
+        const checkboxes = document.querySelectorAll('.wan-checkbox');
+        const config = { routers: [] };
+        
+        // Agrupar por router
+        const routerMap = new Map();
+        
+        checkboxes.forEach(checkbox => {
+            const routerId = checkbox.dataset.router;
+            const wanName = checkbox.dataset.wan;
+            
+            if (!routerMap.has(routerId)) {
+                routerMap.set(routerId, { routerId, wans: [] });
+            }
+            
+            if (checkbox.checked) {
+                routerMap.get(routerId).wans.push(wanName);
+            }
+        });
+        
+        config.routers = Array.from(routerMap.values());
+        
+        // Guardar en servidor
+        const response = await fetch('/api/multi/monitoring-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Configuración guardada correctamente');
+            monitoringConfig = config;
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error guardando configuración: ' + error.message);
     }
 }
 
@@ -1824,6 +2159,124 @@ document.querySelectorAll('.modal').forEach(modal => {
         }
     });
 });
+
+// ==================== FILTROS Y BÚSQUEDA ==================== //
+
+// Filtro de NAT
+let currentNATFilter = 'all';
+
+function filterNATRules() {
+    const searchText = document.getElementById('nat-search').value.toLowerCase();
+    const rules = document.querySelectorAll('#nat-rules-list .rule-item');
+    
+    rules.forEach(rule => {
+        const text = rule.textContent.toLowerCase();
+        const matchesSearch = text.includes(searchText);
+        const matchesFilter = currentNATFilter === 'all' || 
+                             (currentNATFilter === 'disabled' && rule.classList.contains('disabled')) ||
+                             text.includes(currentNATFilter);
+        
+        rule.style.display = (matchesSearch && matchesFilter) ? 'flex' : 'none';
+    });
+}
+
+function filterNATByType(type) {
+    currentNATFilter = type;
+    
+    // Actualizar botones activos
+    document.querySelectorAll('#tab-nat .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === type) {
+            btn.classList.add('active');
+        }
+    });
+    
+    filterNATRules();
+}
+
+// Filtro de Firewall
+let currentFirewallFilter = 'all';
+
+function filterFirewallRules() {
+    const searchText = document.getElementById('firewall-search').value.toLowerCase();
+    const rules = document.querySelectorAll('#firewall-rules-list .rule-item');
+    
+    rules.forEach(rule => {
+        const text = rule.textContent.toLowerCase();
+        const matchesSearch = text.includes(searchText);
+        const matchesFilter = currentFirewallFilter === 'all' || text.includes(currentFirewallFilter);
+        
+        rule.style.display = (matchesSearch && matchesFilter) ? 'flex' : 'none';
+    });
+}
+
+function filterFirewallByAction(action) {
+    currentFirewallFilter = action;
+    
+    // Actualizar botones activos
+    document.querySelectorAll('#tab-firewall .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === action) {
+            btn.classList.add('active');
+        }
+    });
+    
+    filterFirewallRules();
+}
+
+// Filtro de Routers
+function filterRouters() {
+    const searchText = document.getElementById('routers-search')?.value.toLowerCase() || '';
+    const items = document.querySelectorAll('#routers-list .rule-item');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(searchText) ? 'flex' : 'none';
+    });
+}
+
+// Filtro de Cámaras
+function filterCameras() {
+    const searchText = document.getElementById('cameras-search')?.value.toLowerCase() || '';
+    const items = document.querySelectorAll('#cameras-list .camera-card');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(searchText) ? 'block' : 'none';
+    });
+}
+
+// Filtro de DHCP
+let currentDHCPFilter = 'all';
+
+function filterDHCP() {
+    const searchText = document.getElementById('dhcp-search')?.value.toLowerCase() || '';
+    const items = document.querySelectorAll('#dhcp-leases-list .rule-item');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        const matchesSearch = text.includes(searchText);
+        const matchesFilter = currentDHCPFilter === 'all' ||
+                             (currentDHCPFilter === 'static' && text.includes('estático')) ||
+                             (currentDHCPFilter === 'dynamic' && text.includes('dinámico'));
+        
+        item.style.display = (matchesSearch && matchesFilter) ? 'flex' : 'none';
+    });
+}
+
+function filterDHCPByType(type) {
+    currentDHCPFilter = type;
+    
+    // Actualizar botones activos
+    document.querySelectorAll('#tab-dhcp .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === type) {
+            btn.classList.add('active');
+        }
+    });
+    
+    filterDHCP();
+}
 
 // ==================== INICIALIZACIÓN ==================== //
 

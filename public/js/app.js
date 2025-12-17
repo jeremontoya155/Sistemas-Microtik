@@ -181,18 +181,30 @@ function updateWANs(data) {
     // Obtener la interfaz actualmente seleccionada (del selector o localStorage)
     let currentSelected = localStorage.getItem('selectedWAN') || 'all';
     
-    elements.wansGrid.innerHTML = wans.map(wan => `
+    elements.wansGrid.innerHTML = wans.map(wan => {
+        // Construir tooltip con información adicional
+        const tooltip = [
+            wan.comment ? `📝 ${wan.comment}` : '',
+            wan.ipAddress ? `🌐 ${wan.ipAddress}` : '',
+            wan.mac ? `🔧 ${wan.mac}` : ''
+        ].filter(Boolean).join(' | ');
+        
+        return `
         <div class="wan-item ${wan.running ? 'up' : 'down'} ${currentSelected === wan.name ? 'selected' : ''}" 
              data-wan-name="${wan.name}" 
              onclick="selectWANCard('${wan.name}')" 
-             style="cursor: pointer;">
+             style="cursor: pointer;"
+             title="${tooltip || 'Sin información adicional'}">
             <div class="wan-name">${wan.name}</div>
+            ${wan.comment ? `<div class="wan-comment">${wan.comment}</div>` : ''}
+            ${wan.ipAddress && wan.ipAddress !== 'Sin IP' ? `<div class="wan-ip">${wan.ipAddress}</div>` : ''}
             <div class="wan-status ${wan.running ? 'up' : 'down'}">
                 ${wan.running ? 'UP' : 'DOWN'}
             </div>
             ${wan.uptime ? `<div class="wan-uptime">${formatUptime(wan.uptime)}</div>` : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // Función para seleccionar una WAN al hacer clic en su tarjeta
@@ -298,14 +310,25 @@ function updateInterfaces(data) {
     // Actualizar selector de WAN
     updateWANSelector(interfaces);
     
-    elements.interfacesList.innerHTML = interfaces.map(iface => `
-        <div class="interface-item ${iface.running ? 'running' : 'disabled'}">
-            <span class="interface-name">${iface.name}</span>
+    elements.interfacesList.innerHTML = interfaces.map(iface => {
+        const extraInfo = [
+            iface.comment ? `💬 ${iface.comment}` : '',
+            iface.ipAddress && iface.ipAddress !== 'Sin IP' ? `🌐 ${iface.ipAddress}` : ''
+        ].filter(Boolean).join(' | ');
+        
+        return `
+        <div class="interface-item ${iface.running ? 'running' : 'disabled'}" title="${extraInfo || 'Sin información adicional'}">
+            <div style="flex:1;">
+                <span class="interface-name">${iface.name}</span>
+                ${iface.comment ? `<span class="interface-comment">${iface.comment}</span>` : ''}
+                ${iface.ipAddress && iface.ipAddress !== 'Sin IP' ? `<span class="interface-ip">${iface.ipAddress}</span>` : ''}
+            </div>
             <span class="interface-status ${iface.running ? 'running' : 'disabled'}">
                 ${iface.running ? 'RUNNING' : 'DISABLED'}
             </span>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // ==================== ACTUALIZACIÓN DE DISPOSITIVOS ==================== //
@@ -679,12 +702,110 @@ if (elements.wanSelector) {
 
 // ==================== ALERTAS ==================== //
 
+let alertsHistory = [];
+let alertsCount = 0;
+
 function playAlert() {
     if (elements.alertAudio) {
         elements.alertAudio.play().catch(err => {
             console.warn('No se pudo reproducir el audio de alerta:', err);
         });
     }
+}
+
+function toggleAlertsPanel() {
+    const panel = document.getElementById('alerts-panel');
+    if (panel) {
+        panel.classList.toggle('hidden');
+    }
+}
+
+function addAlert(alert) {
+    alertsHistory.unshift(alert);
+    
+    // Mantener solo las últimas 20 alertas
+    if (alertsHistory.length > 20) {
+        alertsHistory = alertsHistory.slice(0, 20);
+    }
+    
+    updateAlertsUI();
+    
+    // Reproducir sonido solo para caídas
+    if (alert.type === 'router-down') {
+        playAlert();
+        
+        // Mostrar notificación del navegador si está permitido
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🚨 Router Caído', {
+                body: `${alert.routerName} (${alert.host}) no responde`,
+                icon: '/favicon.ico'
+            });
+        }
+    }
+}
+
+function updateAlertsUI() {
+    const alertsList = document.getElementById('alerts-list');
+    const alertsBadge = document.getElementById('alerts-count');
+    
+    if (!alertsList) return;
+    
+    // Contar solo alertas de caídas no recuperadas
+    const activeAlerts = alertsHistory.filter(a => a.type === 'router-down');
+    alertsCount = activeAlerts.length;
+    
+    // Actualizar badge
+    if (alertsBadge) {
+        alertsBadge.textContent = alertsCount;
+        if (alertsCount === 0) {
+            alertsBadge.classList.add('hidden');
+        } else {
+            alertsBadge.classList.remove('hidden');
+        }
+    }
+    
+    // Renderizar alertas
+    if (alertsHistory.length === 0) {
+        alertsList.innerHTML = '<div class="no-alerts">Sin alertas recientes</div>';
+    } else {
+        alertsList.innerHTML = alertsHistory.map(alert => {
+            const isDown = alert.type === 'router-down';
+            const icon = isDown ? '❌' : '✅';
+            const className = isDown ? 'alert-item' : 'alert-item recovered';
+            const time = new Date(alert.timestamp).toLocaleString('es-AR');
+            
+            return `
+                <div class="${className}">
+                    <div class="alert-title">
+                        <span class="icon">${icon}</span>
+                        ${alert.routerName}
+                    </div>
+                    <div class="alert-details">
+                        Host: ${alert.host}
+                    </div>
+                    ${alert.error ? `<div class="alert-error">${alert.error}</div>` : ''}
+                    <div class="alert-time">${time}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Escuchar eventos de alertas via Socket.IO
+socket.on('router-alert', (alert) => {
+    console.log('🔔 Alerta recibida:', alert);
+    addAlert(alert);
+});
+
+// Escuchar estado de routers
+socket.on('routers-status', (data) => {
+    console.log('📊 Estado de routers actualizado:', data.routers);
+    // Aquí puedes actualizar UI adicional si es necesario
+});
+
+// Solicitar permiso para notificaciones
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
 }
 
 // ==================== INICIALIZACIÓN ==================== //

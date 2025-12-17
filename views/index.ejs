@@ -16,6 +16,9 @@
             <p id="clock">Cargando...</p>
         </div>
         <div class="header-right">
+            <a href="/multi-dashboard" class="btn btn-secondary" style="margin-right: 10px;">
+                🌐 Multi-Dashboard
+            </a>
             <a href="/admin" class="btn btn-secondary" style="margin-right: 10px;">
                 ⚙️ Administración
             </a>
@@ -162,6 +165,23 @@
             </div>
         </div>
     </div>
+
+    <!-- Panel de Alertas Flotante -->
+    <div id="alerts-panel" class="alerts-panel hidden">
+        <div class="alerts-header">
+            <h4>🚨 Alertas de Routers</h4>
+            <button class="alerts-close" onclick="toggleAlertsPanel()">×</button>
+        </div>
+        <div class="alerts-body" id="alerts-list">
+            <div class="no-alerts">Sin alertas recientes</div>
+        </div>
+    </div>
+
+    <!-- Botón flotante de alertas -->
+    <button id="alerts-toggle" class="alerts-toggle" onclick="toggleAlertsPanel()">
+        <span class="alerts-badge" id="alerts-count">0</span>
+        🔔
+    </button>
 
     <!-- Audio para alertas -->
     <audio id="alert-audio" preload="auto">

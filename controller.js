@@ -59,6 +59,12 @@ class MikroTikController {
         // Cámaras detectadas
         this.cameras = [];
         
+        // Sistema de monitoreo multi-router
+        this.routersStatus = new Map(); // Estado de cada router
+        this.routersHistory = []; // Historial de caídas
+        this.monitoringInterval = null;
+        this.monitoringIntervalTime = 60000; // 60 segundos (1 minuto)
+        
         // Base de datos EXTENSA de vendors de cámaras (primeros 6 o 8 dígitos del MAC)
         this.cameraVendors = {
             // Hikvision (más variantes)
@@ -179,12 +185,26 @@ class MikroTikController {
             // dispositivos marcados (macs)
             markedDevices: []
         };
+
+        // Configuración de monitoreo multi-dashboard
+        this.monitoringConfig = {
+            // routers: [{ routerId: '123', wans: ['ether1', 'ether2'] }]
+            routers: []
+        };
+        this.loadMonitoringConfig();
         
         // Intervalos
         this.intervals = {};
         
         // Cargar configuración de routers al iniciar
         this.loadRoutersConfig();
+        
+        // Iniciar monitoreo de todos los routers
+        if (this.routersConfig.routers.length > 0) {
+            setTimeout(() => {
+                this.startRoutersMonitoring();
+            }, 5000); // Esperar 5 segundos después de iniciar
+        }
         
         console.log('✅ MikroTikController inicializado');
     }
@@ -259,9 +279,15 @@ class MikroTikController {
         const index = this.routersConfig.routers.findIndex(r => r.id === id);
         if (index === -1) throw new Error('Router no encontrado');
         
+        // Si no se proporciona password, mantener el existente
+        const updatedData = { ...routerData };
+        if (!updatedData.password) {
+            delete updatedData.password;
+        }
+        
         this.routersConfig.routers[index] = {
             ...this.routersConfig.routers[index],
-            ...routerData,
+            ...updatedData,
             updatedAt: new Date().toISOString()
         };
         
@@ -447,22 +473,40 @@ class MikroTikController {
         try {
             const interfaces = await this.connection.write('/interface/print');
             
-            this.interfaces = interfaces.map(iface => ({
-                name: iface.name,
-                type: iface.type,
-                running: iface.running === 'true',
-                disabled: iface.disabled === 'true',
-                mac: iface['mac-address'] || 'N/A',
-                mtu: iface.mtu || 'N/A',
-                rxBytesRaw: parseInt(iface['rx-byte'] || 0),
-                txBytesRaw: parseInt(iface['tx-byte'] || 0),
-                rxBytes: this.formatBytes(parseInt(iface['rx-byte'] || 0)),
-                txBytes: this.formatBytes(parseInt(iface['tx-byte'] || 0)),
-                rxPackets: parseInt(iface['rx-packet'] || 0),
-                txPackets: parseInt(iface['tx-packet'] || 0),
-                rxErrors: parseInt(iface['rx-error'] || 0),
-                txErrors: parseInt(iface['tx-error'] || 0)
-            }));
+            // Obtener direcciones IP de las interfaces
+            let ipAddresses = [];
+            try {
+                ipAddresses = await this.connection.write('/ip/address/print');
+            } catch (err) {
+                console.warn('No se pudieron obtener direcciones IP:', err.message);
+            }
+            
+            this.interfaces = interfaces.map(iface => {
+                // Buscar la IP asignada a esta interfaz
+                const ipInfo = ipAddresses.find(ip => ip.interface === iface.name);
+                
+                return {
+                    name: iface.name,
+                    type: iface.type,
+                    running: iface.running === 'true',
+                    disabled: iface.disabled === 'true',
+                    mac: iface['mac-address'] || 'N/A',
+                    mtu: iface.mtu || 'N/A',
+                    comment: iface.comment || '',
+                    // Información de IP
+                    ipAddress: ipInfo ? ipInfo.address : 'Sin IP',
+                    network: ipInfo ? ipInfo.network : '',
+                    // Tráfico
+                    rxBytesRaw: parseInt(iface['rx-byte'] || 0),
+                    txBytesRaw: parseInt(iface['tx-byte'] || 0),
+                    rxBytes: this.formatBytes(parseInt(iface['rx-byte'] || 0)),
+                    txBytes: this.formatBytes(parseInt(iface['tx-byte'] || 0)),
+                    rxPackets: parseInt(iface['rx-packet'] || 0),
+                    txPackets: parseInt(iface['tx-packet'] || 0),
+                    rxErrors: parseInt(iface['rx-error'] || 0),
+                    txErrors: parseInt(iface['tx-error'] || 0)
+                };
+            });
             
             this.io.emit('interfaces_update', { interfaces: this.interfaces });
             console.log(`✅ ${this.interfaces.length} interfaces cargadas`);
@@ -969,6 +1013,49 @@ class MikroTikController {
         this.io.emit('admin_config_update', this.adminConfig);
     }
 
+    // ==================== MONITORING CONFIG ====================
+
+    loadMonitoringConfig() {
+        const configPath = path.join(__dirname, 'monitoring-config.json');
+        try {
+            if (fs.existsSync(configPath)) {
+                const data = fs.readFileSync(configPath, 'utf8');
+                this.monitoringConfig = JSON.parse(data);
+                console.log('✅ Configuración de monitoreo cargada');
+            } else {
+                // Crear config por defecto si no existe
+                this.monitoringConfig = { routers: [] };
+                this.saveMonitoringConfig(this.monitoringConfig);
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar configuración de monitoreo:', error.message);
+            this.monitoringConfig = { routers: [] };
+        }
+    }
+
+    getMonitoringConfig() {
+        return this.monitoringConfig;
+    }
+
+    saveMonitoringConfig(newConfig) {
+        const configPath = path.join(__dirname, 'monitoring-config.json');
+        try {
+            if (!newConfig || !newConfig.routers) {
+                throw new Error('Configuración inválida');
+            }
+
+            this.monitoringConfig = newConfig;
+            fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2), 'utf8');
+            console.log('✅ Configuración de monitoreo guardada');
+            
+            // Emitir evento para que el multi-dashboard se actualice
+            this.io.emit('monitoring_config_update', this.monitoringConfig);
+        } catch (error) {
+            console.error('❌ Error al guardar configuración de monitoreo:', error.message);
+            throw error;
+        }
+    }
+
     // Registrar intento de autenticación fallido (solo fallos)
     logAuthFailure(username, ip) {
         const event = {
@@ -1190,6 +1277,288 @@ class MikroTikController {
         };
     }
     
+    // ==================== MULTI-ROUTER ====================
+    
+    /**
+     * Obtiene datos de todos los routers configurados en paralelo
+     */
+    async getAllRoutersData() {
+        const routers = this.getRouters();
+        
+        if (routers.length === 0) {
+            return [];
+        }
+
+        // Conectar a todos los routers en paralelo
+        const promises = routers.map(async (router) => {
+            const RouterOSAPI = require('node-routeros').RouterOSAPI;
+            const conn = new RouterOSAPI({
+                host: router.host,
+                user: router.username,
+                password: router.password,
+                port: router.port || 8728,
+                timeout: 5
+            });
+
+            try {
+                await conn.connect();
+
+                // Obtener datos básicos en paralelo
+                const [resources, interfaces, dhcp, system] = await Promise.all([
+                    conn.write('/system/resource/print').then(data => data[0]),
+                    conn.write('/interface/print').then(data => data),
+                    conn.write('/ip/dhcp-server/lease/print').then(data => data),
+                    conn.write('/system/identity/print').then(data => data[0])
+                ]);
+
+                // Obtener IPs de interfaces
+                const ipAddresses = await conn.write('/ip/address/print');
+
+                // Procesar interfaces
+                const processedInterfaces = interfaces.map(iface => {
+                    const ipInfo = ipAddresses.find(ip => ip.interface === iface.name);
+                    return {
+                        name: iface.name,
+                        type: iface.type,
+                        running: iface.running === 'true',
+                        disabled: iface.disabled === 'true',
+                        comment: iface.comment || '',
+                        ipAddress: ipInfo ? ipInfo.address : 'Sin IP',
+                        rxBytes: parseInt(iface['rx-byte']) || 0,
+                        txBytes: parseInt(iface['tx-byte']) || 0
+                    };
+                });
+
+                // Contar dispositivos activos
+                const activeDevices = dhcp.filter(lease => lease.status === 'bound').length;
+                
+                // Obtener dispositivos con nombre
+                const devicesList = dhcp
+                    .filter(lease => lease['host-name'] && lease['host-name'].trim() !== '')
+                    .map(lease => ({
+                        hostName: lease['host-name'],
+                        ipAddress: lease.address || '',
+                        macAddress: lease['mac-address'] || '',
+                        status: lease.status || 'unknown'
+                    }));
+                
+                // Obtener logs de seguridad (intentos fallidos de login)
+                let securityLogs = [];
+                try {
+                    const logs = await conn.write('/log/print', [
+                        '?topics=~system,!debug',
+                        '?message=~login failure'
+                    ]);
+                    securityLogs = logs.slice(0, 5).map(log => ({
+                        time: log.time || '',
+                        message: log.message || '',
+                        topics: log.topics || ''
+                    }));
+                } catch (logError) {
+                    console.log(`No se pudieron obtener logs de ${router.name}`);
+                }
+
+                await conn.close();
+
+                return {
+                    id: router.id,
+                    name: router.name,
+                    host: router.host,
+                    connected: true,
+                    identity: system.name || router.name,
+                    resources: {
+                        cpuLoad: parseInt(resources['cpu-load']) || 0,
+                        freeMemory: parseInt(resources['free-memory']) || 0,
+                        totalMemory: parseInt(resources['total-memory']) || 0,
+                        uptime: resources.uptime || '0s',
+                        version: resources.version || 'N/A'
+                    },
+                    interfaces: processedInterfaces,
+                    devices: {
+                        total: dhcp.length,
+                        active: activeDevices,
+                        list: devicesList
+                    },
+                    logs: securityLogs,
+                    timestamp: new Date().toISOString()
+                };
+            } catch (error) {
+                console.error(`Error al conectar con ${router.name}:`, error.message);
+                return {
+                    id: router.id,
+                    name: router.name,
+                    host: router.host,
+                    connected: false,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                };
+            }
+        });
+
+        return await Promise.all(promises);
+    }
+
+    /**
+     * Inicia el monitoreo continuo de todos los routers
+     */
+    startRoutersMonitoring() {
+        if (this.monitoringInterval) {
+            clearInterval(this.monitoringInterval);
+        }
+
+        console.log('🔍 Iniciando monitoreo de routers...');
+        
+        // Ejecutar inmediatamente
+        this.checkAllRoutersStatus();
+        
+        // Luego cada 30 segundos
+        this.monitoringInterval = setInterval(() => {
+            this.checkAllRoutersStatus();
+        }, this.monitoringIntervalTime);
+    }
+
+    /**
+     * Detiene el monitoreo de routers
+     */
+    stopRoutersMonitoring() {
+        if (this.monitoringInterval) {
+            clearInterval(this.monitoringInterval);
+            this.monitoringInterval = null;
+            console.log('⏸️ Monitoreo de routers detenido');
+        }
+    }
+
+    /**
+     * Verifica el estado de todos los routers configurados
+     */
+    async checkAllRoutersStatus() {
+        const routers = this.getRouters();
+        
+        if (routers.length === 0) {
+            return;
+        }
+
+        const promises = routers.map(async (router) => {
+            const RouterOSAPI = require('node-routeros').RouterOSAPI;
+            const conn = new RouterOSAPI({
+                host: router.host,
+                user: router.username,
+                password: router.password,
+                port: router.port || 8728,
+                timeout: 5
+            });
+
+            const previousStatus = this.routersStatus.get(router.id);
+            let currentStatus = {
+                id: router.id,
+                name: router.name,
+                host: router.host,
+                connected: false,
+                lastCheck: new Date().toISOString(),
+                error: null
+            };
+
+            try {
+                await conn.connect();
+                const identity = await conn.write('/system/identity/print');
+                await conn.close();
+
+                currentStatus.connected = true;
+                currentStatus.identity = identity[0]?.name || router.name;
+
+                // Si estaba caído y ahora está up, notificar recuperación
+                if (previousStatus && !previousStatus.connected && currentStatus.connected) {
+                    this.notifyRouterRecovered(router);
+                }
+
+            } catch (error) {
+                currentStatus.error = error.message;
+                currentStatus.connected = false;
+
+                // Si estaba up y ahora está down, notificar caída
+                if (!previousStatus || (previousStatus.connected && !currentStatus.connected)) {
+                    this.notifyRouterDown(router, error.message);
+                }
+            }
+
+            this.routersStatus.set(router.id, currentStatus);
+            return currentStatus;
+        });
+
+        const results = await Promise.all(promises);
+        
+        // Emitir estado actualizado a todos los clientes
+        this.io.emit('routers-status', {
+            routers: Array.from(this.routersStatus.values()),
+            timestamp: new Date().toISOString()
+        });
+
+        return results;
+    }
+
+    /**
+     * Notifica cuando un router se cae
+     */
+    notifyRouterDown(router, error) {
+        const event = {
+            type: 'router-down',
+            routerId: router.id,
+            routerName: router.name,
+            host: router.host,
+            error: error,
+            timestamp: new Date().toISOString()
+        };
+
+        this.routersHistory.unshift(event);
+        
+        // Mantener solo los últimos 50 eventos
+        if (this.routersHistory.length > 50) {
+            this.routersHistory = this.routersHistory.slice(0, 50);
+        }
+
+        console.error(`❌ Router CAÍDO: ${router.name} (${router.host}) - ${error}`);
+        
+        // Emitir alerta a todos los clientes conectados
+        this.io.emit('router-alert', event);
+    }
+
+    /**
+     * Notifica cuando un router se recupera
+     */
+    notifyRouterRecovered(router) {
+        const event = {
+            type: 'router-recovered',
+            routerId: router.id,
+            routerName: router.name,
+            host: router.host,
+            timestamp: new Date().toISOString()
+        };
+
+        this.routersHistory.unshift(event);
+        
+        if (this.routersHistory.length > 50) {
+            this.routersHistory = this.routersHistory.slice(0, 50);
+        }
+
+        console.log(`✅ Router RECUPERADO: ${router.name} (${router.host})`);
+        
+        this.io.emit('router-alert', event);
+    }
+
+    /**
+     * Obtiene el historial de eventos de routers
+     */
+    getRoutersHistory() {
+        return this.routersHistory;
+    }
+
+    /**
+     * Obtiene el estado actual de todos los routers
+     */
+    getRoutersStatus() {
+        return Array.from(this.routersStatus.values());
+    }
+
     // ==================== UTILIDADES ====================
     
     formatBytes(bytes) {

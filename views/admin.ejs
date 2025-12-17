@@ -16,8 +16,11 @@
             <p id="clock">Cargando...</p>
         </div>
         <div class="header-right">
-            <a href="/" class="btn btn-secondary">
+            <a href="/" class="btn btn-secondary" style="margin-right: 10px;">
                 🏠 Dashboard
+            </a>
+            <a href="/multi-dashboard" class="btn btn-secondary" style="margin-right: 10px;">
+                🌐 Multi-Dashboard
             </a>
             <div class="status-indicator">
                 <span class="status-dot" id="status-dot"></span>
@@ -32,6 +35,7 @@
         <!-- Navegación de pestañas -->
         <div class="admin-tabs">
             <button class="tab-btn active" data-tab="routers">🌐 MikroTiks</button>
+            <button class="tab-btn" data-tab="monitoring">📊 Multi-Dashboard Config</button>
             <button class="tab-btn" data-tab="firewall">🔥 Firewall</button>
             <button class="tab-btn" data-tab="nat">🔄 NAT</button>
             <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
@@ -59,6 +63,13 @@
                         📌 Configura múltiples routers MikroTik y cambia entre ellos fácilmente. 
                         El router marcado como <strong>por defecto</strong> se cargará automáticamente al iniciar.
                     </p>
+                    
+                    <!-- Filtro Routers -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="routers-search" placeholder="Buscar router por nombre, IP..." onkeyup="filterRouters()">
+                        </div>
+                    </div>
                     
                     <div id="routers-list" class="rules-list">
                         <div class="loading">Cargando routers...</div>
@@ -103,6 +114,72 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Modal Editar Router -->
+            <div class="modal" id="modal-edit-router">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>✏️ Editar Router</h3>
+                        <span class="modal-close" onclick="closeModal('modal-edit-router')">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="form-edit-router">
+                            <input type="hidden" name="id" id="edit-router-id">
+                            <div class="form-group">
+                                <label>Nombre del Router: *</label>
+                                <input type="text" name="name" id="edit-router-name" placeholder="Oficina Principal" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Host / IP: *</label>
+                                <input type="text" name="host" id="edit-router-host" placeholder="192.168.1.1" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Usuario: *</label>
+                                <input type="text" name="username" id="edit-router-username" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña:</label>
+                                <input type="password" name="password" id="edit-router-password" placeholder="Dejar en blanco para mantener la actual">
+                                <small style="color: var(--text-secondary); font-size: 11px; margin-top: 5px; display: block;">
+                                    💡 Solo ingresa una contraseña si deseas cambiarla
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label>Puerto:</label>
+                                <input type="number" name="port" id="edit-router-port" value="8728">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-success">Guardar Cambios</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-router')">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Configuración Multi-Dashboard -->
+        <div class="tab-content" id="tab-monitoring">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>📊 Configuración Multi-Dashboard</h2>
+                    <button class="btn btn-success" onclick="saveMonitoringConfig()">
+                        💾 Guardar Configuración
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <p class="info-text">
+                        🎛️ Configura qué WANs de cada router se mostrarán en el multi-dashboard.
+                        Solo las WANs seleccionadas aparecerán en la vista consolidada.
+                    </p>
+
+                    <!-- Configuración por Router -->
+                    <div id="monitoring-config-container">
+                        <div class="loading">Cargando configuración...</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Tab: Firewall -->
@@ -116,6 +193,19 @@
                 </div>
                 
                 <div class="section-body">
+                    <!-- Filtros Firewall -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="firewall-search" placeholder="Buscar por IP, puerto, protocolo, comentario..." onkeyup="filterFirewallRules()">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all" onclick="filterFirewallByAction('all')">Todas</button>
+                            <button class="filter-btn" data-filter="accept" onclick="filterFirewallByAction('accept')">ACCEPT</button>
+                            <button class="filter-btn" data-filter="drop" onclick="filterFirewallByAction('drop')">DROP</button>
+                            <button class="filter-btn" data-filter="reject" onclick="filterFirewallByAction('reject')">REJECT</button>
+                        </div>
+                    </div>
+                    
                     <div id="firewall-rules-list" class="rules-list">
                         <div class="loading">Cargando reglas...</div>
                     </div>
@@ -194,6 +284,19 @@
                 </div>
                 
                 <div class="section-body">
+                    <!-- Filtros -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="nat-search" placeholder="Buscar por IP, puerto, comentario..." onkeyup="filterNATRules()">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all" onclick="filterNATByType('all')">Todas</button>
+                            <button class="filter-btn" data-filter="dstnat" onclick="filterNATByType('dstnat')">DSTNAT</button>
+                            <button class="filter-btn" data-filter="srcnat" onclick="filterNATByType('srcnat')">SRCNAT</button>
+                            <button class="filter-btn" data-filter="disabled" onclick="filterNATByType('disabled')">Deshabilitadas</button>
+                        </div>
+                    </div>
+                    
                     <div id="nat-rules-list" class="rules-list">
                         <div class="loading">Cargando reglas NAT...</div>
                     </div>
@@ -356,6 +459,13 @@
                         </div>
                     </div>
                     
+                    <!-- Filtro Cámaras -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="cameras-search" placeholder="Buscar por IP, marca, ubicación..." onkeyup="filterCameras()">
+                        </div>
+                    </div>
+                    
                     <div id="cameras-list" class="cameras-grid">
                         <div class="loading">Cargando cámaras...</div>
                     </div>
@@ -498,6 +608,18 @@ add dst-address=0.0.0.0/0 gateway=<WAN2_IP> routing-mark=to-wan2
                 </div>
                 
                 <div class="section-body">
+                    <!-- Filtro DHCP -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="dhcp-search" placeholder="Buscar por IP, MAC, hostname..." onkeyup="filterDHCP()">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all" onclick="filterDHCPByType('all')">Todas</button>
+                            <button class="filter-btn" data-filter="static" onclick="filterDHCPByType('static')">Estáticas</button>
+                            <button class="filter-btn" data-filter="dynamic" onclick="filterDHCPByType('dynamic')">Dinámicas</button>
+                        </div>
+                    </div>
+                    
                     <div id="dhcp-leases-list" class="rules-list">
                         <div class="loading">Cargando reservas DHCP...</div>
                     </div>
@@ -760,6 +882,23 @@ add dst-address=0.0.0.0/0 gateway=<WAN2_IP> routing-mark=to-wan2
         </div>
 
     </div>
+
+    <!-- Panel de Alertas Flotante -->
+    <div id="alerts-panel" class="alerts-panel hidden">
+        <div class="alerts-header">
+            <h4>🚨 Alertas de Routers</h4>
+            <button class="alerts-close" onclick="toggleAlertsPanel()">×</button>
+        </div>
+        <div class="alerts-body" id="alerts-list">
+            <div class="no-alerts">Sin alertas recientes</div>
+        </div>
+    </div>
+
+    <!-- Botón flotante de alertas -->
+    <button id="alerts-toggle" class="alerts-toggle" onclick="toggleAlertsPanel()">
+        <span class="alerts-badge" id="alerts-count">0</span>
+        🔔
+    </button>
 
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
