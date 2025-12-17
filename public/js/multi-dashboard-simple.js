@@ -161,8 +161,13 @@ function createRouterCard(router) {
         return `
             <div class="router-card offline">
                 <div class="router-header">
-                    <h3>🔴 ${router.name}</h3>
-                    <span class="router-host">${router.host}</span>
+                    <div>
+                        <h3>🔴 ${router.name}</h3>
+                        <span class="router-host">${router.host}</span>
+                    </div>
+                    <div class="header-badges">
+                        <span class="badge badge-danger">✗ Offline</span>
+                    </div>
                 </div>
                 <div class="router-body">
                     <div class="error-message">
@@ -193,24 +198,40 @@ function createRouterCard(router) {
                     <h3>🟢 ${router.name}</h3>
                     <span class="router-host">${router.host}</span>
                 </div>
+                <div class="header-badges">
+                    <span class="badge badge-success">✓ Online</span>
+                    <span class="badge badge-version">${router.resources.version.split(' ')[0] || 'v?'}</span>
+                </div>
             </div>
             
             <!-- Body -->
             <div class="router-body">
                 <!-- Recursos -->
                 <div class="section">
-                    <h4>⚡ Recursos</h4>
+                    <h4>⚡ Recursos del Sistema</h4>
                     <div class="resource-item">
-                        <span class="label">CPU:</span>
-                        <span class="value ${getColorClass(router.resources.cpuLoad)}">${router.resources.cpuLoad}%</span>
+                        <div class="resource-header">
+                            <span class="label">CPU</span>
+                            <span class="value ${getColorClass(router.resources.cpuLoad)}">${router.resources.cpuLoad}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${getColorClass(router.resources.cpuLoad)}" style="width: ${router.resources.cpuLoad}%"></div>
+                        </div>
                     </div>
                     <div class="resource-item">
-                        <span class="label">Memoria:</span>
-                        <span class="value ${getColorClass(memoryPercent)}">${memoryPercent}%</span>
+                        <div class="resource-header">
+                            <span class="label">Memoria</span>
+                            <span class="value ${getColorClass(memoryPercent)}">${memoryPercent}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${getColorClass(memoryPercent)}" style="width: ${memoryPercent}%"></div>
+                        </div>
                     </div>
                     <div class="resource-item">
-                        <span class="label">Uptime:</span>
-                        <span class="value">${formatUptime(router.resources.uptime)}</span>
+                        <div class="resource-header">
+                            <span class="label">Uptime</span>
+                            <span class="value">⏱️ ${formatUptime(router.resources.uptime)}</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -218,15 +239,28 @@ function createRouterCard(router) {
                 <div class="section">
                     <h4>🌐 WANs Monitoreadas (${wanInterfaces.length})</h4>
                     <div class="wans-list">
-                        ${wanInterfaces.length > 0 ? wanInterfaces.map(wan => `
+                        ${wanInterfaces.length > 0 ? wanInterfaces.map(wan => {
+                            const totalTraffic = (wan.rxBytes + wan.txBytes);
+                            const trafficLevel = getTrafficLevel(totalTraffic);
+                            return `
                             <div class="wan-item">
                                 <span class="wan-dot ${wan.running ? 'online' : 'offline'}"></span>
-                                <span class="wan-name">${wan.name}</span>
+                                <div class="wan-info">
+                                    <span class="wan-name">${wan.name}</span>
+                                    <div class="wan-sparkline">
+                                        <div class="spark-bar" style="height: ${Math.min((wan.rxBytes / 1000000) % 100, 80)}%"></div>
+                                        <div class="spark-bar" style="height: ${Math.min((wan.rxBytes / 800000) % 100, 90)}%"></div>
+                                        <div class="spark-bar" style="height: ${Math.min((wan.rxBytes / 600000) % 100, 70)}%"></div>
+                                        <div class="spark-bar" style="height: ${Math.min((wan.rxBytes / 400000) % 100, 85)}%"></div>
+                                        <div class="spark-bar" style="height: ${Math.min((wan.rxBytes / 200000) % 100, 95)}%"></div>
+                                    </div>
+                                </div>
                                 <span class="wan-traffic">
-                                    ↓${formatBytes(wan.rxBytes)} ↑${formatBytes(wan.txBytes)}
+                                    <span style="color: #4caf50;">↓${formatBytes(wan.rxBytes)}</span>
+                                    <span style="color: #2196f3;">↑${formatBytes(wan.txBytes)}</span>
                                 </span>
                             </div>
-                        `).join('') : '<div class="no-data">No hay WANs configuradas para monitorear</div>'}
+                        `}).join('') : '<div class="no-data">No hay WANs configuradas para monitorear</div>'}
                     </div>
                 </div>
                 
@@ -248,18 +282,31 @@ function createRouterCard(router) {
                     ` : '<div class="no-data">No hay dispositivos con nombre</div>'}
                 </div>
                 
-                <!-- Logs de Seguridad -->
+                <!-- Logs de Seguridad y Alertas -->
                 <div class="section">
-                    <h4>🔒 Intentos de Login Fallidos</h4>
+                    <h4>
+                        🔒 Logs y Alertas
+                        ${router.logs && router.logs.length > 0 ? 
+                            `<span class="alert-badge">${router.logs.length}</span>` 
+                            : ''
+                        }
+                    </h4>
                     <div class="logs-list">
                         ${router.logs && router.logs.length > 0 ? 
-                            router.logs.slice(0, 3).map(log => `
-                                <div class="log-item">
-                                    <span class="log-time">${formatLogTime(log.time)}</span>
+                            router.logs.slice(0, 4).map(log => {
+                                const isCritical = detectCriticalEvent(log.message);
+                                const logType = getLogType(log.message);
+                                return `
+                                <div class="log-item ${logType}">
+                                    <div class="log-header">
+                                        <span class="log-icon">${getLogIcon(logType)}</span>
+                                        <span class="log-time">${formatLogTime(log.time)}</span>
+                                        ${isCritical ? '<span class="critical-badge">CRÍTICO</span>' : ''}
+                                    </div>
                                     <span class="log-msg">${log.message}</span>
                                 </div>
-                            `).join('') 
-                            : '<div class="no-data">✅ Sin intentos fallidos recientes</div>'
+                            `}).join('') 
+                            : '<div class="no-data">✅ Sin eventos críticos recientes</div>'
                         }
                     </div>
                 </div>
@@ -318,4 +365,58 @@ function formatLogTime(timeStr) {
     }
     
     return timeStr;
+}
+
+function getTrafficLevel(bytes) {
+    if (bytes > 1000000000) return 'high'; // > 1GB
+    if (bytes > 100000000) return 'medium'; // > 100MB
+    return 'low';
+}
+
+function detectCriticalEvent(message) {
+    if (!message) return false;
+    const criticalKeywords = [
+        'link down',
+        'connection lost',
+        'interface disabled',
+        'microcorte',
+        'timeout',
+        'unreachable',
+        'failed',
+        'error',
+        'critical'
+    ];
+    const msgLower = message.toLowerCase();
+    return criticalKeywords.some(keyword => msgLower.includes(keyword));
+}
+
+function getLogType(message) {
+    if (!message) return 'info';
+    const msgLower = message.toLowerCase();
+    
+    if (msgLower.includes('login failure') || msgLower.includes('authentication failed')) {
+        return 'security';
+    }
+    if (msgLower.includes('link down') || msgLower.includes('interface') || msgLower.includes('disconnected')) {
+        return 'network';
+    }
+    if (msgLower.includes('error') || msgLower.includes('failed') || msgLower.includes('critical')) {
+        return 'error';
+    }
+    if (msgLower.includes('warning') || msgLower.includes('timeout')) {
+        return 'warning';
+    }
+    
+    return 'info';
+}
+
+function getLogIcon(type) {
+    const icons = {
+        security: '🔐',
+        network: '📡',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    return icons[type] || 'ℹ️';
 }

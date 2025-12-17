@@ -1342,18 +1342,37 @@ class MikroTikController {
                         status: lease.status || 'unknown'
                     }));
                 
-                // Obtener logs de seguridad (intentos fallidos de login)
+                // Obtener logs de seguridad y eventos críticos
                 let securityLogs = [];
                 try {
-                    const logs = await conn.write('/log/print', [
-                        '?topics=~system,!debug',
-                        '?message=~login failure'
+                    // Obtener múltiples tipos de logs en paralelo
+                    const [authLogs, linkLogs, errorLogs] = await Promise.all([
+                        // Logs de autenticación fallida
+                        conn.write('/log/print', [
+                            '?topics=~system,!debug',
+                            '?message=~login failure'
+                        ]).catch(() => []),
+                        // Logs de caídas de link/interfaces
+                        conn.write('/log/print', [
+                            '?topics=~interface,!debug',
+                            '?message=~link down|disconnected'
+                        ]).catch(() => []),
+                        // Logs de errores críticos
+                        conn.write('/log/print', [
+                            '?topics=~error,!debug'
+                        ]).catch(() => [])
                     ]);
-                    securityLogs = logs.slice(0, 5).map(log => ({
-                        time: log.time || '',
-                        message: log.message || '',
-                        topics: log.topics || ''
-                    }));
+                    
+                    // Combinar y ordenar por tiempo
+                    const allLogs = [...authLogs, ...linkLogs, ...errorLogs]
+                        .map(log => ({
+                            time: log.time || '',
+                            message: log.message || '',
+                            topics: log.topics || ''
+                        }))
+                        .slice(0, 10); // Últimos 10 eventos
+                    
+                    securityLogs = allLogs;
                 } catch (logError) {
                     console.log(`No se pudieron obtener logs de ${router.name}`);
                 }

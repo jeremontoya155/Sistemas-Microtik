@@ -63,15 +63,28 @@
     border: 2px solid var(--border);
     border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.router-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
 }
 
 .router-card.online {
     border-color: var(--success);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+}
+
+.router-card.online:hover {
+    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.3);
 }
 
 .router-card.offline {
     border-color: var(--danger);
     opacity: 0.7;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.2);
 }
 
 /* ==================== HEADER ==================== */
@@ -80,6 +93,12 @@
     background: linear-gradient(135deg, var(--bg-secondary), #0d1028);
     padding: 15px;
     border-bottom: 1px solid var(--border);
+}
+
+.router-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .router-header h3 {
@@ -93,6 +112,39 @@
     font-family: monospace;
 }
 
+.header-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-success {
+    background: var(--success);
+    color: white;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.badge-danger {
+    background: var(--danger);
+    color: white;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.badge-version {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+
 /* ==================== BODY ==================== */
 
 .router-body {
@@ -101,6 +153,16 @@
 
 .section {
     margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.section:hover {
+    border-color: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .section:last-child {
@@ -112,26 +174,54 @@
     color: var(--text-secondary);
     margin: 0 0 10px 0;
     text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.alert-badge {
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
 }
 
 /* ==================== RECURSOS ==================== */
 
 .resource-item {
     display: flex;
-    justify-content: space-between;
-    padding: 8px;
-    margin-bottom: 5px;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 5px;
 }
 
+.resource-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .resource-item .label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .resource-item .value {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
 }
 
@@ -147,6 +237,33 @@
     color: var(--danger);
 }
 
+/* Barra de progreso */
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.success {
+    background: linear-gradient(90deg, var(--success), #66BB6A);
+}
+
+.progress-fill.warning {
+    background: linear-gradient(90deg, var(--warning), #FFB74D);
+}
+
+.progress-fill.danger {
+    background: linear-gradient(90deg, var(--danger), #EF5350);
+}
+
 /* ==================== WANS ==================== */
 
 .wans-list {
@@ -159,35 +276,91 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px;
+    padding: 10px;
     background: rgba(0, 0, 0, 0.2);
-    border-radius: 5px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.wan-item:hover {
+    background: rgba(0, 0, 0, 0.3);
+    transform: translateX(3px);
 }
 
 .wan-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
+    position: relative;
 }
 
 .wan-dot.online {
     background: var(--success);
-    box-shadow: 0 0 8px var(--success);
+    box-shadow: 0 0 10px var(--success);
+    animation: pulse-dot 2s infinite;
 }
 
 .wan-dot.offline {
     background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.wan-item:has(.wan-dot.online) {
+    border-left-color: var(--success);
+}
+
+.wan-item:has(.wan-dot.offline) {
+    border-left-color: var(--danger);
+}
+
+.wan-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .wan-name {
-    flex: 1;
     font-size: 13px;
     font-weight: bold;
+    min-width: 80px;
+}
+
+.wan-sparkline {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 20px;
+    flex: 1;
+    max-width: 60px;
+}
+
+.spark-bar {
+    flex: 1;
+    background: linear-gradient(to top, var(--accent), rgba(33, 150, 243, 0.5));
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: height 0.3s ease;
+    opacity: 0.7;
+}
+
+.spark-bar:hover {
+    opacity: 1;
 }
 
 .wan-traffic {
     font-size: 11px;
-    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+    min-width: 80px;
 }
 
 /* ==================== DISPOSITIVOS ==================== */
@@ -222,20 +395,28 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px;
+    padding: 10px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    transition: all 0.2s ease;
+}
+
+.device-item:hover {
+    background: rgba(33, 150, 243, 0.1);
+    transform: translateX(3px);
 }
 
 .device-icon {
-    font-size: 18px;
+    font-size: 20px;
+    filter: drop-shadow(0 0 3px rgba(33, 150, 243, 0.5));
 }
 
 .device-info-col {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 
 .device-name {
@@ -246,8 +427,9 @@
 
 .device-ip {
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--accent);
     font-family: monospace;
+    opacity: 0.8;
 }
 
 /* ==================== LOGS ==================== */
@@ -263,22 +445,83 @@
 .log-item {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 8px;
-    background: rgba(244, 67, 54, 0.1);
+    gap: 6px;
+    padding: 10px;
     border-left: 3px solid var(--danger);
     border-radius: 4px;
+    transition: all 0.2s ease;
+    margin-bottom: 6px;
+}
+
+/* Tipos de logs */
+.log-item.security {
+    background: rgba(244, 67, 54, 0.1);
+    border-left-color: var(--danger);
+}
+
+.log-item.network {
+    background: rgba(33, 150, 243, 0.1);
+    border-left-color: var(--accent);
+}
+
+.log-item.error {
+    background: rgba(244, 67, 54, 0.15);
+    border-left-color: var(--danger);
+}
+
+.log-item.warning {
+    background: rgba(255, 152, 0, 0.1);
+    border-left-color: var(--warning);
+}
+
+.log-item.info {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: var(--text-secondary);
+}
+
+.log-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(3px);
+}
+
+.log-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.log-icon {
+    font-size: 14px;
 }
 
 .log-time {
     font-size: 10px;
     color: var(--text-secondary);
     font-family: monospace;
+    font-weight: bold;
+}
+
+.critical-badge {
+    background: var(--danger);
+    color: white;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: auto;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0.5; }
 }
 
 .log-msg {
     font-size: 12px;
     color: var(--text-primary);
+    line-height: 1.4;
+    padding-left: 22px;
 }
 
 .no-data {
