@@ -1,0 +1,8 @@
+{
+  "routerOfflineThreshold": 0,
+  "wanOfflineThreshold": 1,
+  "cpuWarning": 70,
+  "cpuCritical": 90,
+  "memoryWarning": 75,
+  "memoryCritical": 90
+}

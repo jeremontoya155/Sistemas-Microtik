@@ -164,7 +164,7 @@
                 <div class="section-header">
                     <h2>📊 Configuración Multi-Dashboard</h2>
                     <button class="btn btn-success" onclick="saveMonitoringConfig()">
-                        💾 Guardar Configuración
+                        💾 Guardar Configuración WANs
                     </button>
                 </div>
                 
@@ -177,6 +177,108 @@
                     <!-- Configuración por Router -->
                     <div id="monitoring-config-container">
                         <div class="loading">Cargando configuración...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Umbrales de Salud -->
+            <div class="admin-section" style="margin-top: 30px;">
+                <div class="section-header">
+                    <h2>💚 Configuración de Estado General (Carita Verde/Amarilla/Roja)</h2>
+                    <button class="btn btn-success" onclick="saveHealthConfig()">
+                        💾 Guardar Umbrales
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <p class="info-text">
+                        😊 Define cuándo el sistema está <strong style="color: #4caf50;">BIEN (verde)</strong>, 
+                        😐 con <strong style="color: #ff9800;">ADVERTENCIAS (amarillo)</strong>, 
+                        o 😱 en <strong style="color: #f44336;">PROBLEMAS CRÍTICOS (rojo)</strong>.
+                    </p>
+
+                    <div class="health-config-grid">
+                        <!-- Umbrales de Routers -->
+                        <div class="config-card">
+                            <h3>📡 Routers Offline</h3>
+                            <p class="config-description">Cuántos routers offline son aceptables</p>
+                            <div class="form-group">
+                                <label>Umbral Crítico:</label>
+                                <input type="number" id="health-router-offline" min="0" max="10" value="0">
+                                <small>Si hay más de este número de routers caídos → 😱 CRÍTICO</small>
+                            </div>
+                        </div>
+
+                        <!-- Umbrales de WANs -->
+                        <div class="config-card">
+                            <h3>🌐 WANs Offline</h3>
+                            <p class="config-description">Cuántas WANs offline son tolerables</p>
+                            <div class="form-group">
+                                <label>Umbral Advertencia:</label>
+                                <input type="number" id="health-wan-offline" min="0" max="10" value="1">
+                                <small>Más de este número → 😱 CRÍTICO (si 1 o menos → 😐 ADVERTENCIA)</small>
+                            </div>
+                        </div>
+
+                        <!-- CPU -->
+                        <div class="config-card">
+                            <h3>⚡ Uso de CPU</h3>
+                            <p class="config-description">Porcentaje de CPU para alertar</p>
+                            <div class="form-group">
+                                <label>Advertencia (%):</label>
+                                <input type="number" id="health-cpu-warning" min="0" max="100" value="70">
+                                <small>CPU mayor a este % → 😐 ADVERTENCIA</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Crítico (%):</label>
+                                <input type="number" id="health-cpu-critical" min="0" max="100" value="90">
+                                <small>CPU mayor a este % → 😱 CRÍTICO</small>
+                            </div>
+                        </div>
+
+                        <!-- Memoria -->
+                        <div class="config-card">
+                            <h3>🧠 Uso de Memoria</h3>
+                            <p class="config-description">Porcentaje de memoria para alertar</p>
+                            <div class="form-group">
+                                <label>Advertencia (%):</label>
+                                <input type="number" id="health-memory-warning" min="0" max="100" value="75">
+                                <small>Memoria mayor a este % → 😐 ADVERTENCIA</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Crítico (%):</label>
+                                <input type="number" id="health-memory-critical" min="0" max="100" value="90">
+                                <small>Memoria mayor a este % → 😱 CRÍTICO</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vista Previa del Estado -->
+                    <div class="health-preview" id="health-preview">
+                        <h3>👁️ Vista Previa del Estado General:</h3>
+                        <div class="preview-states">
+                            <div class="preview-state state-good">
+                                <div class="preview-emoji">😊</div>
+                                <div class="preview-info">
+                                    <strong>TODO BIEN (Verde)</strong>
+                                    <p>Todos los routers online, WANs activas, CPU y memoria normales</p>
+                                </div>
+                            </div>
+                            <div class="preview-state state-warning">
+                                <div class="preview-emoji">😐</div>
+                                <div class="preview-info">
+                                    <strong>ADVERTENCIAS (Amarillo)</strong>
+                                    <p>Algunas WANs caídas o recursos en niveles de advertencia</p>
+                                </div>
+                            </div>
+                            <div class="preview-state state-critical">
+                                <div class="preview-emoji">😱</div>
+                                <div class="preview-info">
+                                    <strong>CRÍTICO (Rojo)</strong>
+                                    <p>Routers caídos, múltiples WANs offline, o recursos críticos</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

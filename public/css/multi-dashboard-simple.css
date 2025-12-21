@@ -7,6 +7,168 @@
     max-width: 100%;
 }
 
+/* ==================== TARJETA DE ESTADO GENERAL ==================== */
+
+.health-status-card {
+    background: linear-gradient(135deg, #1a1f3a 0%, #0d1028 100%);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--border);
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.health-status-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+    animation: rotate-bg 20s linear infinite;
+}
+
+@keyframes rotate-bg {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.health-status-card.status-good {
+    border-color: #4caf50;
+    box-shadow: 0 8px 30px rgba(76, 175, 80, 0.3);
+}
+
+.health-status-card.status-warning {
+    border-color: #ff9800;
+    box-shadow: 0 8px 30px rgba(255, 152, 0, 0.3);
+}
+
+.health-status-card.status-critical {
+    border-color: #f44336;
+    box-shadow: 0 8px 30px rgba(244, 67, 54, 0.3);
+    animation: pulse-critical 2s infinite;
+}
+
+@keyframes pulse-critical {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.01); }
+}
+
+.health-icon {
+    position: relative;
+    z-index: 1;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.4s ease;
+}
+
+.health-status-card.status-good .health-icon {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: #4caf50;
+    box-shadow: 0 0 30px rgba(76, 175, 80, 0.3);
+}
+
+.health-status-card.status-warning .health-icon {
+    background: rgba(255, 152, 0, 0.1);
+    border-color: #ff9800;
+    box-shadow: 0 0 30px rgba(255, 152, 0, 0.3);
+}
+
+.health-status-card.status-critical .health-icon {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: #f44336;
+    box-shadow: 0 0 30px rgba(244, 67, 54, 0.3);
+    animation: shake-icon 0.5s infinite;
+}
+
+@keyframes shake-icon {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-5deg); }
+    75% { transform: rotate(5deg); }
+}
+
+.emoji-face {
+    font-size: 60px;
+    animation: float-emoji 3s ease-in-out infinite;
+}
+
+@keyframes float-emoji {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.health-info {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+}
+
+.health-title {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+}
+
+.health-subtitle {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.health-details {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.health-stat {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.health-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.health-btn {
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.health-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
 /* ==================== RESUMEN COMPACTO ==================== */
 
 .summary-compact {

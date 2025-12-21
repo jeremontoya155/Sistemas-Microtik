@@ -6,17 +6,42 @@
 let allRouters = [];
 let updateInterval = null;
 let monitoringConfig = { routers: [] };
+let healthThresholds = {
+    routerOfflineThreshold: 0, // Si hay routers caídos
+    wanOfflineThreshold: 1,    // Cuántas WANs caídas son aceptables
+    cpuWarning: 70,            // % CPU para advertencia
+    cpuCritical: 90,           // % CPU para crítico
+    memoryWarning: 75,         // % Memoria para advertencia
+    memoryCritical: 90         // % Memoria para crítico
+};
 
 // ==================== INICIALIZACIÓN ====================
 
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
+    loadHealthThresholds();
     loadMonitoringConfig();
     loadAllRouters();
     
     // Actualizar cada 10 segundos
     updateInterval = setInterval(loadAllRouters, 10000);
 });
+
+// ==================== CARGA DE CONFIGURACIÓN ====================
+
+async function loadHealthThresholds() {
+    try {
+        const response = await fetch('/api/multi/health-config');
+        const data = await response.json();
+        
+        if (data.success && data.config) {
+            healthThresholds = { ...healthThresholds, ...data.config };
+            console.log('✅ Umbrales de salud cargados:', healthThresholds);
+        }
+    } catch (error) {
+        console.log('ℹ️ Usando umbrales por defecto');
+    }
+}
 
 // ==================== RELOJ ====================
 
@@ -117,6 +142,101 @@ function updateSummary() {
     document.getElementById('total-devices').textContent = totalDevices;
     document.getElementById('total-rx').textContent = formatBytes(totalRx);
     document.getElementById('total-tx').textContent = formatBytes(totalTx);
+    
+    // Actualizar tarjeta de estado general
+    updateHealthStatus();
+}
+
+// ==================== ESTADO GENERAL DE SALUD ====================
+
+function updateHealthStatus() {
+    const totalRouters = allRouters.length;
+    const connectedRouters = allRouters.filter(r => r.connected).length;
+    const offlineRouters = totalRouters - connectedRouters;
+    
+    // Contar WANs caídas
+    let totalWans = 0;
+    let offlineWans = 0;
+    allRouters.forEach(r => {
+        if (!r.interfaces) return;
+        const wans = getFilteredWANs(r.id, r.interfaces);
+        totalWans += wans.length;
+        offlineWans += wans.filter(w => !w.running).length;
+    });
+    
+    // Detectar problemas de CPU/Memoria
+    let cpuIssues = 0;
+    let memoryIssues = 0;
+    allRouters.forEach(r => {
+        if (!r.connected || !r.resources) return;
+        
+        const cpuLoad = r.resources.cpuLoad || 0;
+        const memoryPercent = ((r.resources.totalMemory - r.resources.freeMemory) / r.resources.totalMemory * 100);
+        
+        if (cpuLoad >= healthThresholds.cpuCritical) cpuIssues++;
+        if (memoryPercent >= healthThresholds.memoryCritical) memoryIssues++;
+    });
+    
+    // Determinar estado general
+    let status = 'good';
+    let emoji = '😊';
+    let title = 'Todo funcionando perfecto';
+    let subtitle = 'Todos los sistemas operativos';
+    let problems = [];
+    
+    // CRÍTICO: Routers caídos o muchas WANs caídas
+    if (offlineRouters > healthThresholds.routerOfflineThreshold) {
+        status = 'critical';
+        emoji = '😱';
+        title = '¡Problemas Críticos Detectados!';
+        subtitle = 'Se requiere atención inmediata';
+        problems.push(`${offlineRouters} router(s) caído(s)`);
+    } else if (offlineWans > healthThresholds.wanOfflineThreshold) {
+        status = 'critical';
+        emoji = '😱';
+        title = '¡Conexiones WAN Caídas!';
+        subtitle = 'Revisar conectividad de internet';
+        problems.push(`${offlineWans} WAN(s) sin conexión`);
+    } else if (cpuIssues > 0 || memoryIssues > 0) {
+        status = 'warning';
+        emoji = '😟';
+        title = 'Rendimiento Degradado';
+        subtitle = 'Algunos routers bajo estrés';
+        if (cpuIssues > 0) problems.push(`${cpuIssues} router(s) con CPU alta`);
+        if (memoryIssues > 0) problems.push(`${memoryIssues} router(s) con memoria alta`);
+    } else if (offlineWans > 0) {
+        status = 'warning';
+        emoji = '😐';
+        title = 'Funcionamiento Normal con Alertas';
+        subtitle = 'Algunas conexiones degradadas';
+        problems.push(`${offlineWans} WAN(s) en backup`);
+    }
+    
+    // Actualizar UI
+    const card = document.getElementById('health-status-card');
+    const icon = document.getElementById('health-icon');
+    const titleEl = document.getElementById('health-title');
+    const subtitleEl = document.getElementById('health-subtitle');
+    const detailsEl = document.getElementById('health-details');
+    
+    // Limpiar clases anteriores
+    card.className = 'health-status-card';
+    card.classList.add(`status-${status}`);
+    
+    // Actualizar emoji
+    icon.querySelector('.emoji-face').textContent = emoji;
+    
+    // Actualizar textos
+    titleEl.textContent = title;
+    subtitleEl.textContent = subtitle;
+    
+    // Actualizar detalles
+    const statsHtml = `
+        <span class="health-stat ${offlineRouters > 0 ? '❌' : '✓'}">${offlineRouters > 0 ? '❌' : '✓'} ${connectedRouters}/${totalRouters} Routers Online</span>
+        <span class="health-stat ${offlineWans > healthThresholds.wanOfflineThreshold ? '❌' : '✓'}">${offlineWans > healthThresholds.wanOfflineThreshold ? '❌' : '✓'} ${totalWans - offlineWans}/${totalWans} WANs Activas</span>
+        <span class="health-stat ${problems.length > 0 ? '⚠️' : '✓'}">${problems.length > 0 ? '⚠️' : '✓'} ${problems.length > 0 ? problems.join(', ') : 'Sin problemas críticos'}</span>
+    `;
+    detailsEl.innerHTML = statsHtml;
 }
 
 function updateConnectionStatus() {

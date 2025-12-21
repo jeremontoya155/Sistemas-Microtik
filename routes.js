@@ -681,6 +681,52 @@ module.exports = (app, controller) => {
             });
         }
     });
+
+    /**
+     * GET /api/multi/health-config - Obtener configuración de umbrales de salud
+     */
+    app.get('/api/multi/health-config', (req, res) => {
+        try {
+            const config = controller.getHealthConfig();
+            res.json({
+                success: true,
+                config: config
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * POST /api/multi/health-config - Guardar configuración de umbrales de salud
+     */
+    app.post('/api/multi/health-config', (req, res) => {
+        try {
+            const config = req.body;
+            
+            if (!config) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Configuración inválida'
+                });
+            }
+
+            controller.saveHealthConfig(config);
+            
+            res.json({
+                success: true,
+                message: 'Configuración de salud guardada exitosamente'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
     
     // ==================== API: ADMINISTRACIÓN ====================
     

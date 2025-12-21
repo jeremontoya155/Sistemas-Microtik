@@ -185,6 +185,7 @@ function loadTabData(tabId) {
             break;
         case 'monitoring':
             loadMonitoringConfig();
+            loadHealthConfig();
             break;
         case 'firewall':
             loadFirewallRules();
@@ -603,6 +604,55 @@ async function saveMonitoringConfig() {
         }
     } catch (error) {
         alert('❌ Error guardando configuración: ' + error.message);
+    }
+}
+
+// ==================== CONFIGURACIÓN DE SALUD ==================== //
+
+async function loadHealthConfig() {
+    try {
+        const response = await fetch('/api/multi/health-config');
+        const data = await response.json();
+        
+        if (data.success && data.config) {
+            document.getElementById('health-router-offline').value = data.config.routerOfflineThreshold || 0;
+            document.getElementById('health-wan-offline').value = data.config.wanOfflineThreshold || 1;
+            document.getElementById('health-cpu-warning').value = data.config.cpuWarning || 70;
+            document.getElementById('health-cpu-critical').value = data.config.cpuCritical || 90;
+            document.getElementById('health-memory-warning').value = data.config.memoryWarning || 75;
+            document.getElementById('health-memory-critical').value = data.config.memoryCritical || 90;
+        }
+    } catch (error) {
+        console.error('Error cargando configuración de salud:', error);
+    }
+}
+
+async function saveHealthConfig() {
+    try {
+        const config = {
+            routerOfflineThreshold: parseInt(document.getElementById('health-router-offline').value),
+            wanOfflineThreshold: parseInt(document.getElementById('health-wan-offline').value),
+            cpuWarning: parseInt(document.getElementById('health-cpu-warning').value),
+            cpuCritical: parseInt(document.getElementById('health-cpu-critical').value),
+            memoryWarning: parseInt(document.getElementById('health-memory-warning').value),
+            memoryCritical: parseInt(document.getElementById('health-memory-critical').value)
+        };
+        
+        const response = await fetch('/api/multi/health-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Configuración de umbrales guardada correctamente');
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error guardando umbrales: ' + error.message);
     }
 }
 

@@ -193,6 +193,18 @@ class MikroTikController {
         };
         this.loadMonitoringConfig();
         
+        // Configuración de umbrales de salud
+        this.healthConfigFile = path.join(__dirname, 'health-config.json');
+        this.healthConfig = {
+            routerOfflineThreshold: 0,
+            wanOfflineThreshold: 1,
+            cpuWarning: 70,
+            cpuCritical: 90,
+            memoryWarning: 75,
+            memoryCritical: 90
+        };
+        this.loadHealthConfig();
+        
         // Intervalos
         this.intervals = {};
         
@@ -1055,6 +1067,43 @@ class MikroTikController {
             throw error;
         }
     }
+
+    // ==================== CONFIGURACIÓN DE SALUD ====================
+
+    loadHealthConfig() {
+        try {
+            if (fs.existsSync(this.healthConfigFile)) {
+                const data = fs.readFileSync(this.healthConfigFile, 'utf8');
+                this.healthConfig = { ...this.healthConfig, ...JSON.parse(data) };
+                console.log('✅ Configuración de umbrales de salud cargada');
+            } else {
+                // Crear config por defecto si no existe
+                this.saveHealthConfig(this.healthConfig);
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar configuración de salud:', error.message);
+        }
+    }
+
+    getHealthConfig() {
+        return this.healthConfig;
+    }
+
+    saveHealthConfig(newConfig) {
+        try {
+            this.healthConfig = { ...this.healthConfig, ...newConfig };
+            fs.writeFileSync(this.healthConfigFile, JSON.stringify(this.healthConfig, null, 2), 'utf8');
+            console.log('✅ Configuración de salud guardada:', this.healthConfig);
+            
+            // Emitir evento para que el multi-dashboard se actualice
+            this.io.emit('health_config_update', this.healthConfig);
+        } catch (error) {
+            console.error('❌ Error al guardar configuración de salud:', error.message);
+            throw error;
+        }
+    }
+
+    // ==================== REGISTRO DE FALLOS ====================
 
     // Registrar intento de autenticación fallido (solo fallos)
     logAuthFailure(username, ip) {

@@ -1033,3 +1033,154 @@
     color: var(--text-secondary);
     font-style: italic;
 }
+
+/* ==================== CONFIGURACIÓN DE SALUD ==================== */
+
+.health-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.config-card {
+    background: var(--bg-tertiary);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.config-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(91, 155, 213, 0.2);
+}
+
+.config-card h3 {
+    font-size: 16px;
+    color: var(--accent);
+    margin: 0 0 8px 0;
+}
+
+.config-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 15px 0;
+}
+
+.config-card .form-group {
+    margin-bottom: 15px;
+}
+
+.config-card .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.config-card label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.config-card input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.config-card input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(91, 155, 213, 0.3);
+}
+
+.config-card small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    font-style: italic;
+}
+
+/* Vista Previa del Estado */
+.health-preview {
+    background: linear-gradient(135deg, rgba(91, 155, 213, 0.1) 0%, rgba(91, 155, 213, 0.05) 100%);
+    padding: 25px;
+    border-radius: 12px;
+    border: 2px solid rgba(91, 155, 213, 0.3);
+}
+
+.health-preview h3 {
+    font-size: 18px;
+    color: var(--accent);
+    margin: 0 0 20px 0;
+}
+
+.preview-states {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.preview-state {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.preview-state:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.preview-state.state-good {
+    border-color: #4caf50;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+}
+
+.preview-state.state-warning {
+    border-color: #ff9800;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%);
+}
+
+.preview-state.state-critical {
+    border-color: #f44336;
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(244, 67, 54, 0.05) 100%);
+}
+
+.preview-emoji {
+    font-size: 40px;
+    flex-shrink: 0;
+}
+
+.preview-info {
+    flex: 1;
+}
+
+.preview-info strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 5px;
+    color: var(--text-primary);
+}
+
+.preview-info p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
