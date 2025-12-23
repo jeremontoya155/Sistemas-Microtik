@@ -187,6 +187,9 @@ function loadTabData(tabId) {
             loadMonitoringConfig();
             loadHealthConfig();
             break;
+        case 'devices':
+            loadDevicesEnhanced();
+            break;
         case 'firewall':
             loadFirewallRules();
             break;
@@ -314,21 +317,29 @@ document.getElementById('form-add-router')?.addEventListener('submit', async (e)
 });
 
 async function switchToRouter(id) {
-    if (!confirm('¿Cambiar a este router? Se desconectará del actual.')) return;
+    if (!confirm('¿Cambiar a este router? Se desconectará del actual y se conectará al nuevo.')) return;
     
     try {
+        // Mostrar loading
+        const loadingMsg = showLoadingMessage('Cambiando de router y conectando...');
+        
         const response = await fetch(`/api/routers/${id}/switch`, {
             method: 'POST'
         });
         
         const result = await response.json();
         
+        hideLoadingMessage(loadingMsg);
+        
         if (result.success) {
             alert(`✅ ${result.message}`);
             loadRouters();
             
-            // Recargar estado de conexión
-            checkConnection();
+            // Recargar estado de conexión y TODOS los datos del nuevo router
+            await checkConnection();
+            
+            // Recargar datos de todas las pestañas
+            await reloadAllTabsData();
         } else {
             alert('❌ Error: ' + result.message);
         }
@@ -339,20 +350,113 @@ async function switchToRouter(id) {
 
 async function setDefaultRouter(id) {
     try {
+        // Mostrar loading
+        const loadingMsg = showLoadingMessage('Estableciendo router por defecto y conectando...');
+        
         const response = await fetch(`/api/routers/${id}/default`, {
             method: 'POST'
         });
         
         const result = await response.json();
         
+        hideLoadingMessage(loadingMsg);
+        
         if (result.success) {
             alert('✅ ' + result.message);
             loadRouters();
+            
+            // Conectar automáticamente al nuevo router default
+            await connectToDefaultRouter();
+            
+            // Recargar TODOS los datos del nuevo router
+            await reloadAllTabsData();
         } else {
             alert('❌ Error: ' + result.message);
         }
     } catch (error) {
         alert('❌ Error: ' + error.message);
+    }
+}
+
+// Función para conectar automáticamente al router por defecto
+async function connectToDefaultRouter() {
+    try {
+        const response = await fetch('/api/connect', {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Conectado automáticamente al router por defecto');
+            await checkConnection();
+            return true;
+        } else {
+            console.error('❌ Error conectando:', result.message);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Error conectando:', error.message);
+        return false;
+    }
+}
+
+// Función para recargar todos los datos de todas las pestañas
+async function reloadAllTabsData() {
+    console.log('🔄 Recargando datos de todas las pestañas...');
+    
+    try {
+        // Cargar datos de todas las pestañas en paralelo
+        await Promise.all([
+            loadFirewallRules().catch(err => console.log('Firewall:', err.message)),
+            loadNATRules().catch(err => console.log('NAT:', err.message)),
+            loadQueues().catch(err => console.log('Queues:', err.message)),
+            loadWANsConfig().catch(err => console.log('WANs:', err.message)),
+            loadDHCPLeases().catch(err => console.log('DHCP:', err.message)),
+            loadRoutes().catch(err => console.log('Routes:', err.message)),
+            loadUsers().catch(err => console.log('Users:', err.message)),
+            loadScheduler().catch(err => console.log('Scheduler:', err.message)),
+            loadInterfaces().catch(err => console.log('Interfaces:', err.message))
+        ]);
+        
+        console.log('✅ Todos los datos recargados');
+    } catch (error) {
+        console.error('❌ Error recargando datos:', error.message);
+    }
+}
+
+// Funciones de ayuda para mostrar mensajes de carga
+function showLoadingMessage(message) {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loading-overlay';
+    loadingDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+    `;
+    loadingDiv.innerHTML = `
+        <div style="text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+            <div>${message}</div>
+        </div>
+    `;
+    document.body.appendChild(loadingDiv);
+    return loadingDiv;
+}
+
+function hideLoadingMessage(loadingDiv) {
+    if (loadingDiv && loadingDiv.parentNode) {
+        loadingDiv.parentNode.removeChild(loadingDiv);
     }
 }
 
@@ -900,11 +1004,46 @@ async function loadInterfaces() {
         const data = await response.json();
         
         if (data.success && data.interfaces) {
-            const select = document.getElementById('nat-interfaces');
-            select.innerHTML = '<option value="">Todas</option>' + 
-                data.interfaces.map(iface => 
-                    `<option value="${iface.name}">${iface.name}</option>`
-                ).join('');
+            // Actualizar TODOS los selectores de interfaces en el admin
+            const selectors = [
+                'nat-interfaces',           // Selector de NAT
+                'nat-in-interface',         // Interfaz de entrada NAT
+                'route-gateway-interface',  // Interfaz de rutas
+                'queue-interface'           // Interfaz de queues
+            ];
+            
+            selectors.forEach(selectorId => {
+                const select = document.getElementById(selectorId);
+                if (select) {
+                    const currentValue = select.value; // Preservar valor actual si existe
+                    
+                    select.innerHTML = '<option value="">Todas</option>' + 
+                        data.interfaces.map(iface => 
+                            `<option value="${iface.name}">${iface.name} ${iface.running ? '✓' : '✗'}</option>`
+                        ).join('');
+                    
+                    // Restaurar valor si aún existe
+                    if (currentValue && [...select.options].some(opt => opt.value === currentValue)) {
+                        select.value = currentValue;
+                    }
+                }
+            });
+            
+            // También actualizar selectores de interfaz de entrada en modal NAT
+            const inInterfaceSelect = document.querySelector('select[name="in-interface"]');
+            if (inInterfaceSelect) {
+                const currentValue = inInterfaceSelect.value;
+                inInterfaceSelect.innerHTML = '<option value="">Todas</option>' + 
+                    data.interfaces.map(iface => 
+                        `<option value="${iface.name}">${iface.name} ${iface.running ? '✓' : '✗'}</option>`
+                    ).join('');
+                
+                if (currentValue && [...inInterfaceSelect.options].some(opt => opt.value === currentValue)) {
+                    inInterfaceSelect.value = currentValue;
+                }
+            }
+            
+            console.log(`✅ ${data.interfaces.length} interfaces cargadas en selectores`);
         }
     } catch (error) {
         console.error('Error cargando interfaces:', error);
@@ -2326,6 +2465,292 @@ function filterDHCPByType(type) {
     });
     
     filterDHCP();
+}
+
+// ==================== DISPOSITIVOS MEJORADOS ==================== //
+
+async function loadDevicesEnhanced() {
+    try {
+        const response = await fetch('/api/devices');
+        const data = await response.json();
+        
+        const list = document.getElementById('devices-list-enhanced');
+        
+        if (!data.devices || data.devices.length === 0) {
+            list.innerHTML = '<div class="loading">No hay dispositivos conectados o no estás conectado al router.</div>';
+            return;
+        }
+        
+        // Ordenar por activos primero, luego por nombre
+        const devices = data.devices.sort((a, b) => {
+            if (a.active && !b.active) return -1;
+            if (!a.active && b.active) return 1;
+            return (a.hostName || a.ipAddress || '').localeCompare(b.hostName || b.ipAddress || '');
+        });
+        
+        list.innerHTML = devices.map(device => createDeviceCard(device)).join('');
+        
+    } catch (error) {
+        console.error('Error cargando dispositivos:', error);
+        const list = document.getElementById('devices-list-enhanced');
+        list.innerHTML = '<div class="error">Error al cargar dispositivos. Verifica la conexión al router.</div>';
+    }
+}
+
+function createDeviceCard(device) {
+    const isActive = device.active || device.status === 'online';
+    const isCamera = device.type === 'camera' || device.brand;
+    const icon = isCamera ? '📹' : '💻';
+    
+    return `
+        <div class="device-card-enhanced ${isActive ? 'device-active' : 'device-inactive'} ${isCamera ? 'device-camera' : ''}" 
+             data-ip="${device.ipAddress || ''}" 
+             data-mac="${device.macAddress || ''}" 
+             data-hostname="${device.hostName || ''}">
+            <div class="device-header-enhanced">
+                <span class="device-icon-enhanced">${icon}</span>
+                <div class="device-info-enhanced">
+                    <span class="device-name-enhanced">${device.hostName || device.ipAddress || 'Dispositivo sin nombre'}</span>
+                    <span class="device-ip-enhanced">IP: ${device.ipAddress || 'N/A'}</span>
+                    <span class="device-mac-enhanced">MAC: ${device.macAddress || 'N/A'}</span>
+                </div>
+                <span class="device-status-badge ${isActive ? 'active' : 'inactive'}">
+                    ${isActive ? '🟢 Activo' : '⚪ Inactivo'}
+                </span>
+            </div>
+            
+            <div class="device-details-enhanced">
+                ${device.brand ? `
+                    <div class="device-detail-row">
+                        <span class="device-detail-label">Marca:</span>
+                        <span class="device-detail-value">${device.brand}</span>
+                    </div>
+                ` : ''}
+                ${device.interface ? `
+                    <div class="device-detail-row">
+                        <span class="device-detail-label">Interfaz:</span>
+                        <span class="device-detail-value">${device.interface}</span>
+                    </div>
+                ` : ''}
+                ${device.lastSeen ? `
+                    <div class="device-detail-row">
+                        <span class="device-detail-label">Última vez visto:</span>
+                        <span class="device-detail-value">${new Date(device.lastSeen).toLocaleString('es-AR')}</span>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <div class="device-actions-enhanced">
+                <button class="device-action-btn success" onclick="createFirewallRuleForDevice('${device.ipAddress}', '${device.hostName || 'Dispositivo'}', 'accept')" title="Permitir todo el tráfico">
+                    ✅ Permitir Tráfico
+                </button>
+                <button class="device-action-btn danger" onclick="createFirewallRuleForDevice('${device.ipAddress}', '${device.hostName || 'Dispositivo'}', 'drop')" title="Bloquear todo el tráfico">
+                    🚫 Bloquear
+                </button>
+                <button class="device-action-btn" onclick="createNATForDevice('${device.ipAddress}', '${device.macAddress}', '${device.hostName || 'Dispositivo'}')" title="Crear regla de Port Forwarding">
+                    🔄 Port Forwarding
+                </button>
+                <button class="device-action-btn" onclick="createBandwidthLimitForDevice('${device.ipAddress}', '${device.hostName || 'Dispositivo'}')" title="Limitar ancho de banda">
+                    📊 Limitar BW
+                </button>
+                <button class="device-action-btn" onclick="createDHCPReservationForDevice('${device.ipAddress}', '${device.macAddress}', '${device.hostName || 'Dispositivo'}')" title="Crear reserva DHCP estática">
+                    📌 Reserva DHCP
+                </button>
+                <button class="device-action-btn warning" onclick="disconnectDevice('${device.ipAddress}', '${device.macAddress}')" title="Desconectar del router">
+                    ⏏️ Desconectar
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function refreshDevices() {
+    loadDevicesEnhanced();
+    showNotification('Actualizando lista de dispositivos...', 'info');
+}
+
+function filterDevices() {
+    const searchTerm = document.getElementById('devices-search').value.toLowerCase();
+    const cards = document.querySelectorAll('.device-card-enhanced');
+    
+    cards.forEach(card => {
+        const ip = card.dataset.ip.toLowerCase();
+        const mac = card.dataset.mac.toLowerCase();
+        const hostname = card.dataset.hostname.toLowerCase();
+        
+        if (ip.includes(searchTerm) || mac.includes(searchTerm) || hostname.includes(searchTerm)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function filterDevicesByStatus(status) {
+    const cards = document.querySelectorAll('.device-card-enhanced');
+    
+    document.querySelectorAll('#tab-devices .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === status) {
+            btn.classList.add('active');
+        }
+    });
+    
+    cards.forEach(card => {
+        if (status === 'all') {
+            card.style.display = '';
+        } else if (status === 'active' && card.classList.contains('device-active')) {
+            card.style.display = '';
+        } else if (status === 'inactive' && card.classList.contains('device-inactive')) {
+            card.style.display = '';
+        } else if (status === 'cameras' && card.classList.contains('device-camera')) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function filterDevicesByType(type) {
+    filterDevicesByStatus(type);
+}
+
+// ==================== ACCIONES RÁPIDAS SOBRE DISPOSITIVOS ==================== //
+
+function createFirewallRuleForDevice(ip, hostname, action) {
+    // Pre-rellenar el formulario de firewall
+    const modal = document.getElementById('modal-firewall');
+    const form = document.getElementById('form-firewall');
+    
+    if (!form) {
+        alert('Error: No se encontró el formulario de firewall');
+        return;
+    }
+    
+    // Cambiar a la pestaña de firewall
+    document.querySelector('[data-tab="firewall"]').click();
+    
+    setTimeout(() => {
+        showAddFirewallRule();
+        
+        // Pre-rellenar campos
+        form.querySelector('[name="src-address"]').value = ip;
+        form.querySelector('[name="action"]').value = action;
+        form.querySelector('[name="chain"]').value = 'forward';
+        form.querySelector('[name="comment"]').value = `${action === 'drop' ? 'Bloquear' : 'Permitir'} ${hostname} (${ip})`;
+        
+        showNotification(`Crear regla de ${action === 'drop' ? 'BLOQUEO' : 'PERMISO'} para ${hostname}`, 'info');
+    }, 300);
+}
+
+function createNATForDevice(ip, mac, hostname) {
+    // Cambiar a la pestaña de NAT
+    document.querySelector('[data-tab="nat"]').click();
+    
+    setTimeout(() => {
+        showAddNATRule();
+        
+        const form = document.getElementById('form-nat');
+        if (form) {
+            form.querySelector('[name="to-addresses"]').value = ip;
+            form.querySelector('[name="comment"]').value = `Port Forwarding para ${hostname} (${ip})`;
+        }
+        
+        showNotification(`Configurar Port Forwarding para ${hostname}`, 'info');
+    }, 300);
+}
+
+function createBandwidthLimitForDevice(ip, hostname) {
+    // Cambiar a la pestaña de bandwidth
+    document.querySelector('[data-tab="bandwidth"]').click();
+    
+    setTimeout(() => {
+        showAddQueue();
+        
+        const form = document.getElementById('form-queue');
+        if (form) {
+            form.querySelector('[name="target"]').value = ip + '/32';
+            form.querySelector('[name="comment"]').value = `Límite BW para ${hostname} (${ip})`;
+        }
+        
+        showNotification(`Configurar límite de ancho de banda para ${hostname}`, 'info');
+    }, 300);
+}
+
+function createDHCPReservationForDevice(ip, mac, hostname) {
+    if (!mac || mac === 'N/A') {
+        alert('No se puede crear reserva DHCP: MAC address no disponible');
+        return;
+    }
+    
+    // Cambiar a la pestaña de DHCP
+    document.querySelector('[data-tab="dhcp"]').click();
+    
+    setTimeout(() => {
+        showAddDHCPLease();
+        
+        const form = document.getElementById('form-dhcp');
+        if (form) {
+            form.querySelector('[name="mac-address"]').value = mac;
+            form.querySelector('[name="address"]').value = ip;
+            form.querySelector('[name="comment"]').value = hostname || `Dispositivo ${ip}`;
+        }
+        
+        showNotification(`Crear reserva DHCP para ${hostname}`, 'info');
+    }, 300);
+}
+
+async function disconnectDevice(ip, mac) {
+    if (!confirm(`¿Desconectar dispositivo ${ip}?\n\nEsto eliminará el lease DHCP y forzará la desconexión.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/device/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip, mac })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`✅ Dispositivo ${ip} desconectado`, 'success');
+            setTimeout(() => refreshDevices(), 1000);
+        } else {
+            showNotification(`❌ Error: ${data.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('❌ Error al desconectar dispositivo', 'error');
+    }
+}
+
+// Función auxiliar para mostrar notificaciones
+function showNotification(message, type = 'info') {
+    // Crear notificación visual
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196f3'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // ==================== INICIALIZACIÓN ==================== //

@@ -36,6 +36,7 @@
         <div class="admin-tabs">
             <button class="tab-btn active" data-tab="routers">🌐 MikroTiks</button>
             <button class="tab-btn" data-tab="monitoring">📊 Multi-Dashboard Config</button>
+            <button class="tab-btn" data-tab="devices">💻 Dispositivos</button>
             <button class="tab-btn" data-tab="firewall">🔥 Firewall</button>
             <button class="tab-btn" data-tab="nat">🔄 NAT</button>
             <button class="tab-btn" data-tab="bandwidth">📊 Ancho de Banda</button>
@@ -812,6 +813,43 @@ add dst-address=0.0.0.0/0 gateway=<WAN2_IP> routing-mark=to-wan2
                                 <button type="button" class="btn btn-secondary" onclick="closeModal('modal-route')">Cancelar</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Dispositivos Conectados (NUEVO) -->
+        <div class="tab-content" id="tab-devices">
+            <div class="admin-section">
+                <div class="section-header">
+                    <h2>💻 Dispositivos Conectados</h2>
+                    <button class="btn btn-primary" onclick="refreshDevices()">
+                        🔄 Actualizar Lista
+                    </button>
+                </div>
+                
+                <div class="section-body">
+                    <p class="info-text">
+                        📱 Vista unificada de todos los dispositivos conectados con acciones rápidas.
+                        Desde aquí puedes crear reglas de firewall, NAT, limitar ancho de banda o bloquear dispositivos.
+                    </p>
+
+                    <!-- Filtros Avanzados -->
+                    <div class="filter-container">
+                        <div class="search-box">
+                            <input type="text" id="devices-search" placeholder="Buscar por IP, MAC, hostname..." onkeyup="filterDevices()">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="all" onclick="filterDevicesByStatus('all')">Todos</button>
+                            <button class="filter-btn" data-filter="active" onclick="filterDevicesByStatus('active')">Activos</button>
+                            <button class="filter-btn" data-filter="inactive" onclick="filterDevicesByStatus('inactive')">Inactivos</button>
+                            <button class="filter-btn" data-filter="cameras" onclick="filterDevicesByType('cameras')">📹 Cámaras</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Lista de Dispositivos Mejorada -->
+                    <div id="devices-list-enhanced" class="devices-enhanced-grid">
+                        <div class="loading">Cargando dispositivos...</div>
                     </div>
                 </div>
             </div>

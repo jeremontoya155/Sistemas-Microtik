@@ -498,14 +498,18 @@ module.exports = (app, controller) => {
     /**
      * POST /api/routers/:id/default - Establecer router por defecto
      */
-    app.post('/api/routers/:id/default', (req, res) => {
+    app.post('/api/routers/:id/default', async (req, res) => {
         try {
             const { id } = req.params;
             const router = controller.setDefaultRouter(id);
             
+            // Automáticamente cambiar a este router y conectar
+            const switchResult = await controller.switchRouter(id);
+            
             res.json({
                 success: true,
-                message: `${router.name} establecido como router por defecto`
+                message: `${router.name} establecido como router por defecto y conectado`,
+                connected: switchResult.success
             });
         } catch (error) {
             res.status(500).json({
@@ -527,6 +531,46 @@ module.exports = (app, controller) => {
                 success: result.success,
                 message: result.message,
                 router: controller.activeRouter
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/routers/:id/analyze/cpu - Analizar consumo de CPU de un router
+     */
+    app.get('/api/routers/:id/analyze/cpu', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const analysis = await controller.analyzeRouterCPU(id);
+            
+            res.json({
+                success: true,
+                analysis: analysis
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/routers/:id/analyze/memory - Analizar consumo de memoria de un router
+     */
+    app.get('/api/routers/:id/analyze/memory', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const analysis = await controller.analyzeRouterMemory(id);
+            
+            res.json({
+                success: true,
+                analysis: analysis
             });
         } catch (error) {
             res.status(500).json({

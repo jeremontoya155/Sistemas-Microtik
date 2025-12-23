@@ -1627,6 +1627,213 @@ class MikroTikController {
         return Array.from(this.routersStatus.values());
     }
 
+    // ==================== ANÁLISIS DE ROUTERS ====================
+    
+    async analyzeRouterCPU(routerId) {
+        const router = this.routersConfig.routers.find(r => r.id === routerId);
+        if (!router) {
+            throw new Error('Router no encontrado');
+        }
+
+        const RouterOSAPI = require('node-routeros').RouterOSAPI;
+        const conn = new RouterOSAPI({
+            host: router.host,
+            user: router.username,
+            password: router.password,
+            port: router.port || 8728,
+            timeout: 10
+        });
+
+        try {
+            await conn.connect();
+
+            // Obtener información del sistema y recursos
+            const [resources, interfaces, dhcp, connections] = await Promise.all([
+                conn.write('/system/resource/print').then(data => data[0]),
+                conn.write('/interface/print'),
+                conn.write('/ip/dhcp-server/lease/print'),
+                conn.write('/ip/firewall/connection/print').catch(() => [])
+            ]);
+
+            // Calcular tráfico por dispositivo
+            const devicesTraffic = {};
+            connections.forEach(conn => {
+                const srcAddr = conn['src-address'] ? conn['src-address'].split(':')[0] : null;
+                if (srcAddr) {
+                    if (!devicesTraffic[srcAddr]) {
+                        devicesTraffic[srcAddr] = {
+                            ipAddress: srcAddr,
+                            totalTraffic: 0,
+                            connections: 0
+                        };
+                    }
+                    devicesTraffic[srcAddr].connections++;
+                }
+            });
+
+            // Agregar info de DHCP a los dispositivos
+            dhcp.forEach(lease => {
+                const ip = lease.address || lease['active-address'];
+                if (ip && devicesTraffic[ip]) {
+                    devicesTraffic[ip].hostName = lease['host-name'] || 'Desconocido';
+                    devicesTraffic[ip].macAddress = lease['mac-address'] || '';
+                }
+            });
+
+            // Top 10 dispositivos por conexiones
+            const topDevices = Object.values(devicesTraffic)
+                .sort((a, b) => b.connections - a.connections)
+                .slice(0, 10);
+
+            // Top 10 conexiones activas
+            const topConnections = connections
+                .slice(0, 20)
+                .map(conn => ({
+                    srcAddress: conn['src-address'],
+                    dstAddress: conn['dst-address'],
+                    protocol: conn.protocol,
+                    timeout: conn.timeout
+                }));
+
+            // Calcular recursos
+            const cpuLoad = parseInt(resources['cpu-load']) || 0;
+            const totalMemory = parseInt(resources['total-memory']) || 0;
+            const freeMemory = parseInt(resources['free-memory']) || 0;
+            const memoryPercent = totalMemory > 0 ? ((totalMemory - freeMemory) / totalMemory * 100).toFixed(1) : 0;
+
+            await conn.close();
+
+            return {
+                resources: {
+                    cpuLoad: cpuLoad,
+                    memoryPercent: parseFloat(memoryPercent),
+                    uptime: resources.uptime || 'N/A'
+                },
+                topDevices: topDevices,
+                topConnections: topConnections,
+                totalConnections: connections.length,
+                recommendation: this.getRecommendation('cpu', cpuLoad, topDevices)
+            };
+
+        } catch (error) {
+            console.error(`Error al analizar CPU del router ${router.name}:`, error.message);
+            throw error;
+        }
+    }
+
+    async analyzeRouterMemory(routerId) {
+        const router = this.routersConfig.routers.find(r => r.id === routerId);
+        if (!router) {
+            throw new Error('Router no encontrado');
+        }
+
+        const RouterOSAPI = require('node-routeros').RouterOSAPI;
+        const conn = new RouterOSAPI({
+            host: router.host,
+            user: router.username,
+            password: router.password,
+            port: router.port || 8728,
+            timeout: 10
+        });
+
+        try {
+            await conn.connect();
+
+            const [resources, dhcp, firewall] = await Promise.all([
+                conn.write('/system/resource/print').then(data => data[0]),
+                conn.write('/ip/dhcp-server/lease/print'),
+                conn.write('/ip/firewall/filter/print').catch(() => [])
+            ]);
+
+            const cpuLoad = parseInt(resources['cpu-load']) || 0;
+            const totalMemory = parseInt(resources['total-memory']) || 0;
+            const freeMemory = parseInt(resources['free-memory']) || 0;
+            const memoryPercent = totalMemory > 0 ? ((totalMemory - freeMemory) / totalMemory * 100).toFixed(1) : 0;
+
+            await conn.close();
+
+            return {
+                resources: {
+                    cpuLoad: cpuLoad,
+                    memoryPercent: parseFloat(memoryPercent),
+                    memoryUsed: this.formatBytes(totalMemory - freeMemory),
+                    memoryTotal: this.formatBytes(totalMemory),
+                    uptime: resources.uptime || 'N/A'
+                },
+                statistics: {
+                    totalDevices: dhcp.length,
+                    activeDevices: dhcp.filter(l => l.status === 'bound').length,
+                    firewallRules: firewall.length
+                },
+                recommendation: this.getRecommendation('memory', memoryPercent, null)
+            };
+
+        } catch (error) {
+            console.error(`Error al analizar memoria del router ${router.name}:`, error.message);
+            throw error;
+        }
+    }
+
+    getRecommendation(type, value, data) {
+        if (type === 'cpu') {
+            if (value >= 90) {
+                return {
+                    level: 'critical',
+                    message: 'CPU al límite. Considera reducir conexiones activas o agregar reglas de firewall para limitar tráfico.',
+                    actions: [
+                        'Revisa los dispositivos con más conexiones activas',
+                        'Considera agregar límites de bandwidth por IP',
+                        'Verifica si hay ataques DDoS o flood'
+                    ]
+                };
+            } else if (value >= 70) {
+                return {
+                    level: 'warning',
+                    message: 'CPU en nivel de advertencia. Monitorea el tráfico y considera optimizaciones.',
+                    actions: [
+                        'Revisa las reglas de firewall innecesarias',
+                        'Considera hacer Queue Trees para limitar bandwidth'
+                    ]
+                };
+            }
+            return {
+                level: 'good',
+                message: 'CPU en niveles normales.',
+                actions: []
+            };
+        }
+
+        if (type === 'memory') {
+            if (value >= 90) {
+                return {
+                    level: 'critical',
+                    message: 'Memoria casi llena. Considera reiniciar el router o reducir logs.',
+                    actions: [
+                        'Limpia logs antiguos: /log print where ...',
+                        'Revisa reglas de firewall duplicadas',
+                        'Considera reiniciar el router en horario de bajo tráfico'
+                    ]
+                };
+            } else if (value >= 75) {
+                return {
+                    level: 'warning',
+                    message: 'Memoria en nivel de advertencia.',
+                    actions: [
+                        'Monitorea el crecimiento de memoria',
+                        'Limpia logs si es necesario'
+                    ]
+                };
+            }
+            return {
+                level: 'good',
+                message: 'Memoria en niveles normales.',
+                actions: []
+            };
+        }
+
+        return { level: 'info', message: 'Sin análisis disponible', actions: [] };
+    }
+
     // ==================== UTILIDADES ====================
     
     formatBytes(bytes) {
@@ -1644,3 +1851,4 @@ class MikroTikController {
 }
 
 module.exports = MikroTikController;
+
