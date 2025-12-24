@@ -63,7 +63,7 @@ class MikroTikController {
         this.routersStatus = new Map(); // Estado de cada router
         this.routersHistory = []; // Historial de caídas
         this.monitoringInterval = null;
-        this.monitoringIntervalTime = 60000; // 60 segundos (1 minuto)
+        this.monitoringIntervalTime = 180000; // 180 segundos (3 minutos) - Ultra-optimizado para mínimo consumo CPU
         
         // Base de datos EXTENSA de vendors de cámaras (primeros 6 o 8 dígitos del MAC)
         this.cameraVendors = {
@@ -751,28 +751,28 @@ class MikroTikController {
         this.monitoring = true;
         console.log('🔄 Iniciando monitoreo en tiempo real...');
         
-        // Tráfico cada 1 segundo (como Python)
-        this.intervals.traffic = setInterval(() => this.updateTraffic(), 1000);
+        // Tráfico cada 15 segundos (ultra-optimizado para mínimo consumo CPU)
+        this.intervals.traffic = setInterval(() => this.updateTraffic(), 15000);
         
-        // Recursos cada 2 segundos (como Python)
-        this.intervals.resources = setInterval(() => this.updateResources(), 2000);
+        // Recursos cada 30 segundos (ultra-optimizado)
+        this.intervals.resources = setInterval(() => this.updateResources(), 30000);
         
-        // Interfaces cada 10 segundos
-        this.intervals.interfaces = setInterval(() => this.loadInterfaces(), 10000);
+        // Interfaces cada 60 segundos (1 minuto)
+        this.intervals.interfaces = setInterval(() => this.loadInterfaces(), 60000);
         
-        // Dispositivos cada 15 segundos
-        this.intervals.devices = setInterval(() => this.loadDevices(), 15000);
+        // Dispositivos cada 90 segundos (1.5 minutos)
+        this.intervals.devices = setInterval(() => this.loadDevices(), 90000);
         
-        // Logs cada 5 segundos
-        this.intervals.logs = setInterval(() => this.loadLogs(), 5000);
+        // Logs cada 45 segundos (ultra-optimizado)
+        this.intervals.logs = setInterval(() => this.loadLogs(), 45000);
         
-        // WANs cada 10 segundos
-        this.intervals.wans = setInterval(() => this.loadWANs(), 10000);
+        // WANs cada 60 segundos (1 minuto)
+        this.intervals.wans = setInterval(() => this.loadWANs(), 60000);
         
-        // Cámaras cada 20 segundos
-        this.intervals.cameras = setInterval(() => this.loadCameras(), 20000);
+        // Cámaras cada 120 segundos (2 minutos)
+        this.intervals.cameras = setInterval(() => this.loadCameras(), 120000);
         
-        console.log('✅ Monitoreo iniciado');
+        console.log('✅ Monitoreo iniciado (modo ultra-optimizado - mínimo consumo CPU)');
     }
     
     async updateTraffic() {

@@ -15,8 +15,8 @@
         loadMonitoringConfig();
         loadAllRouters();
         
-        // Actualizar cada 10 segundos
-        updateInterval = setInterval(loadAllRouters, 10000);
+        // Actualizar cada 90 segundos (ultra-optimizado para mínimo consumo CPU)
+        updateInterval = setInterval(loadAllRouters, 90000);
     });
 
     // ==================== RELOJ ====================

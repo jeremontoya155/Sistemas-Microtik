@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllRouters();
     
     // Actualizar cada 10 segundos
-    updateInterval = setInterval(loadAllRouters, 10000);
+    updateInterval = setInterval(loadAllRouters, 90000); // Actualizar cada 90 segundos (ultra-optimizado)
 });
 
 // ==================== RELOJ ====================
